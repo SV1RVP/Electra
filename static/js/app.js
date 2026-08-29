@@ -172,16 +172,6 @@ const I18N = {
     toast_selftest_failed: "🚨❌ Αποτυχία Self-Test στο {name}! Ελέγξτε τη μπαταρία.",
     toast_buzzer_on: "🔔 Ο ηχητικός συναγερμός (Buzzer) ενεργοποιήθηκε στο {name}.",
     toast_buzzer_off: "🔕 Ο ηχητικός συναγερμός (Buzzer) σιγάστηκε στο {name}.",
-
-    btn_buzzer_on: "🔔 Συναγερμός ON",
-    btn_buzzer_off: "🔕 Συναγερμός OFF",
-    btn_selftest: "🧪 Self-Test",
-    btn_selftest_running: "⏳ Εκτέλεση...",
-    lbl_last_selftest: "Τελευταίο Self-Test",
-    selftest_none: "Δεν έχει εκτελεστεί",
-    selftest_running: "Σε εξέλιξη...",
-    selftest_passed: "Επιτυχία",
-    selftest_failed: "Αποτυχία",
   },
   en: {
     app_title: "UPS STATUS MONITOR",
@@ -349,16 +339,6 @@ const I18N = {
     toast_selftest_failed: "🚨❌ Self-Test on {name} failed! Check battery.",
     toast_buzzer_on: "🔔 Alarm buzzer enabled on {name}.",
     toast_buzzer_off: "🔕 Alarm buzzer muted on {name}.",
-
-    btn_buzzer_on: "🔔 Buzzer ON",
-    btn_buzzer_off: "🔕 Buzzer OFF",
-    btn_selftest: "🧪 Self-Test",
-    btn_selftest_running: "⏳ Running...",
-    lbl_last_selftest: "Last Self-Test",
-    selftest_none: "None recorded",
-    selftest_running: "In Progress...",
-    selftest_passed: "Passed",
-    selftest_failed: "Failed",
   }
 };
 
@@ -527,16 +507,6 @@ function initEventListeners() {
     btnRunAll.addEventListener('click', handleRunAllSelfTest);
   }
 
-  // Chart UPS Tabs (Segmented Buttons with Icons)
-  document.querySelectorAll('.ups-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.ups-tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      if (chartManager) chartManager.setUPS(btn.getAttribute('data-ups'));
-    });
-  });
-
-  // Chart Metric Tabs with Icons
   document.querySelectorAll('.metric-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.metric-tab-btn').forEach(b => b.classList.remove('active'));
@@ -545,7 +515,6 @@ function initEventListeners() {
     });
   });
 
-  // Chart Period Tabs with Icons
   document.querySelectorAll('.period-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.period-tab-btn').forEach(b => b.classList.remove('active'));
@@ -553,6 +522,13 @@ function initEventListeners() {
       if (chartManager) chartManager.setPeriod(parseInt(btn.getAttribute('data-period')));
     });
   });
+
+  const chartUpsSelect = document.getElementById('chartUpsSelect');
+  if (chartUpsSelect) {
+    chartUpsSelect.addEventListener('change', (e) => {
+      if (chartManager) chartManager.setUPS(e.target.value);
+    });
+  }
 
   document.getElementById('exportCsvBtn')?.addEventListener('click', () => {
     window.open('/api/export/csv?type=events', '_blank');
@@ -603,35 +579,14 @@ async function fetchInitialData() {
   }
 }
 
-function updateChartTabs(profMap) {
-  if (!profMap) return;
-  for (const [slot, info] of Object.entries(profMap)) {
-    const disp = info.display_name || slot;
-    if (chartManager) {
-      chartManager.setSlotLabel(slot, disp);
-    }
-    if (slot === 'Local-1') {
-      const lbl = document.getElementById('chartLabelLocal1');
-      if (lbl) lbl.textContent = disp;
-    } else if (slot === 'Local-2') {
-      const lbl = document.getElementById('chartLabelLocal2');
-      if (lbl) lbl.textContent = disp;
-    } else if (slot === 'Remote-1') {
-      const lbl = document.getElementById('chartLabelRemote');
-      if (lbl) lbl.textContent = disp;
-    }
-  }
-}
-
 function updateDashboard(payload) {
   if (!payload || !payload.ups_list) return;
 
   const profMap = {};
-  payload.ups_list.forEach((u, idx) => {
-    const key = u.slot_name || u.name || (idx === 0 ? 'Local-1' : (idx === 1 ? 'Local-2' : 'Remote-1'));
-    profMap[key] = { display_name: u.display_name || u.name, location: u.location };
+  payload.ups_list.forEach(u => {
+    profMap[u.name] = { display_name: u.display_name || u.name, location: u.location };
   });
-  updateChartTabs(profMap);
+  updateChartSelectOptions(profMap);
 
   const summary = payload.summary || {};
   const totalWattsEl = document.getElementById('summaryTotalWatts');
@@ -640,7 +595,7 @@ function updateDashboard(payload) {
 
   if (totalWattsEl) totalWattsEl.textContent = `${summary.total_watts || 0} W`;
   if (avgLoadEl) avgLoadEl.textContent = `${summary.avg_load_pct || 0}%`;
-  if (activeUnitsEl) activeUnitsEl.textContent = `${summary.online_ups || 0} / ${summary.total_ups || payload.ups_list.length || 3}`;
+  if (activeUnitsEl) activeUnitsEl.textContent = `${summary.online_ups || 0} / ${summary.total_ups || 3}`;
 
   const gridStatusEl = document.getElementById('summaryGridStatus');
   const gridCardEl = document.getElementById('summaryGridCard');
@@ -661,21 +616,17 @@ function updateDashboard(payload) {
   const container = document.getElementById('upsGridContainer');
   if (container) {
     payload.ups_list.forEach((ups, idx) => {
-      try {
-        if (!ups.slot_name) {
-          ups.slot_name = idx === 0 ? 'Local-1' : (idx === 1 ? 'Local-2' : 'Remote-1');
-        }
-        const safeId = (ups.slot_name || ups.name || `ups-${idx}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-        let card = document.getElementById(`ups-card-${safeId}`);
-        if (!card) {
-          card = createUPSCardElement(ups, safeId);
-          container.appendChild(card);
-        }
-        updateUPSCard(card, ups);
-        checkAudioAlerts(ups);
-      } catch (err) {
-        console.error('Error rendering UPS card:', err, ups);
+      if (!ups.slot_name) {
+        ups.slot_name = idx === 0 ? 'Local-1' : idx === 1 ? 'Local-2' : 'Remote-1';
       }
+      const safeId = (ups.slot_name || ups.name || `ups-${idx}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+      let card = document.getElementById(`ups-card-${safeId}`);
+      if (!card) {
+        card = createUPSCardElement(ups, safeId);
+        container.appendChild(card);
+      }
+      updateUPSCard(card, ups);
+      checkAudioAlerts(ups);
     });
   }
 }
@@ -1917,165 +1868,4 @@ async function handleRunAllSelfTest() {
     fetchInitialData();
   }, 1000);
 }
-
-// ----------------------------------------------------
-// Electra - Auto-Update & Service Restart Manager
-// ----------------------------------------------------
-function initUpdateSystem() {
-  const btnCheck = document.getElementById('btnCheckUpdate');
-  const btnUpdate = document.getElementById('btnUpdateNow');
-
-  if (btnCheck) {
-    btnCheck.addEventListener('click', () => checkAppUpdate(false));
-  }
-  if (btnUpdate) {
-    btnUpdate.addEventListener('click', applyAppUpdateNow);
-  }
-
-  // Initial check after 3 seconds
-  setTimeout(() => checkAppUpdate(true), 3000);
-}
-
-async function checkAppUpdate(silent = false) {
-  const updateInfo = document.getElementById('updateInfo');
-  const btnUpdate = document.getElementById('btnUpdateNow');
-  const versionTag = document.getElementById('versionTag');
-
-  if (!silent && updateInfo) {
-    updateInfo.textContent = currentLang === 'el' ? 'Έλεγχος...' : 'Checking...';
-  }
-
-  try {
-    const resp = await fetch('/api/update/status');
-    const data = await resp.json();
-
-    if (versionTag && data.local_version) {
-      versionTag.textContent = `v${data.local_version}`;
-    }
-
-    if (data.update_available) {
-      if (updateInfo) {
-        updateInfo.textContent = currentLang === 'el'
-          ? `⚡ Νέα έκδοση v${data.remote_version}!`
-          : `⚡ New version v${data.remote_version}!`;
-        updateInfo.style.color = 'var(--accent-amber)';
-      }
-      if (btnUpdate) {
-        btnUpdate.style.display = 'inline-flex';
-      }
-      if (!silent) {
-        showToast(
-          currentLang === 'el'
-            ? `Διαθέσιμη νέα έκδοση v${data.remote_version}!`
-            : `New version v${data.remote_version} available!`,
-          'info'
-        );
-      }
-    } else {
-      if (updateInfo) {
-        updateInfo.textContent = currentLang === 'el' ? '✅ Ενημερωμένο' : '✅ Up to date';
-        updateInfo.style.color = 'var(--accent-emerald)';
-      }
-      if (btnUpdate) {
-        btnUpdate.style.display = 'none';
-      }
-      if (!silent) {
-        showToast(
-          currentLang === 'el'
-            ? 'Το Electra είναι πλήρως ενημερωμένο.'
-            : 'Electra is up to date.',
-          'success'
-        );
-      }
-    }
-  } catch (err) {
-    if (!silent && updateInfo) {
-      updateInfo.textContent = currentLang === 'el' ? 'Σφάλμα ελέγχου' : 'Check failed';
-      showToast(`Update check error: ${err.message}`, 'error');
-    }
-  }
-}
-
-async function applyAppUpdateNow() {
-  const confirmMsg = currentLang === 'el'
-    ? 'Θέλετε να προχωρήσετε σε αυτόματη λήψη των νέων αρχείων, αναβάθμιση και επανεκκίνηση του Electra;\n\n(Οι ρυθμίσεις και το ιστορικό σας διατηρούνται 100%)'
-    : 'Do you want to download updates, apply files and restart Electra?\n\n(Your settings and database history are 100% preserved)';
-
-  if (!confirm(confirmMsg)) return;
-
-  const btnUpdate = document.getElementById('btnUpdateNow');
-  const updateInfo = document.getElementById('updateInfo');
-
-  if (btnUpdate) btnUpdate.disabled = true;
-  if (updateInfo) {
-    updateInfo.textContent = currentLang === 'el' ? '⏳ Λήψη & Ενημέρωση...' : '⏳ Updating...';
-  }
-  showToast(
-    currentLang === 'el'
-      ? 'Λήψη ενημέρωσης και επανεκκίνηση υπηρεσίας...'
-      : 'Downloading update and restarting service...',
-    'info'
-  );
-
-  try {
-    const res = await fetch('/api/update/perform', { method: 'POST' });
-    const data = await res.json();
-
-    if (data.status === 'success') {
-      showToast(
-        currentLang === 'el'
-          ? 'Η ενημέρωση εφαρμόζεται! Επανεκκίνηση...'
-          : 'Update applied! Restarting...',
-        'success'
-      );
-      setTimeout(pollForElectraRestart, 3000);
-    } else {
-      showToast(`Update failed: ${data.message}`, 'error');
-      if (btnUpdate) btnUpdate.disabled = false;
-    }
-  } catch (e) {
-    // If connection drops because server exited, poll for restart
-    setTimeout(pollForElectraRestart, 3000);
-  }
-}
-
-function pollForElectraRestart() {
-  let attempts = 0;
-  const maxAttempts = 30;
-
-  const interval = setInterval(async () => {
-    attempts++;
-    try {
-      const res = await fetch('/api/version', { cache: 'no-cache' });
-      if (res.ok) {
-        clearInterval(interval);
-        showToast(
-          currentLang === 'el'
-            ? 'Το Electra είναι ξανά online! Ανανέωση...'
-            : 'Electra is back online! Refreshing...',
-          'success'
-        );
-        setTimeout(() => window.location.reload(), 1000);
-      }
-    } catch (err) {
-      // Still restarting
-    }
-
-    if (attempts >= maxAttempts) {
-      clearInterval(interval);
-      showToast(
-        currentLang === 'el'
-          ? 'Η ενημέρωση ολοκληρώθηκε. Παρακαλώ ανανεώστε τη σελίδα.'
-          : 'Update finished. Please refresh the page.',
-        'info'
-      );
-    }
-  }, 2000);
-}
-
-// Start update system when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  initUpdateSystem();
-});
-
 

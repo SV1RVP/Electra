@@ -1,7 +1,7 @@
 # ⚡ Electra - UPS Status Central Monitor 🔋📊
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.3.1-emerald.svg)](version.json)
+[![Version](https://img.shields.io/badge/Version-1.2.0-emerald.svg)](version.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Raspberry%20Pi-purple.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)

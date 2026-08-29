@@ -157,30 +157,10 @@ def queue_remote_command(cmd: str):
 def get_ups_list_for_response() -> List[Dict[str, Any]]:
     out = []
     latest_st_map = db_manager.get_all_latest_self_tests()
-    profs = get_profiles()
-
-    ordered_slots = []
-    seen = set()
-
-    # Priority slot order
-    for s in ["Local-1", "Local-2", "Remote-1", "TEC", "Turbo-X", "Remote-UPS"]:
-        if s in profs or s in latest_ups_state:
-            if s not in seen:
-                seen.add(s)
-                ordered_slots.append(s)
-
-    if not ordered_slots:
-        ordered_slots = ["Local-1", "Local-2", "Remote-1"]
-
-    for slot in ordered_slots:
+    for slot in ["Local-1", "Local-2", "Remote-1"]:
         d = latest_ups_state.get(slot)
         if not d:
-            prof = profs.get(slot, {})
-            disp = prof.get("display_name", "Primary UPS (USB 1)" if slot == "Local-1" else ("Secondary UPS (USB 2)" if slot == "Local-2" else "Remote UPS (Network / IP)"))
-            loc = prof.get("location", "Local")
-            d = UPSData(name=disp, source="Auto-Scan", connected=False, mode="Offline", location=loc, display_name=disp)
-            latest_ups_state[slot] = d
-
+            continue
         d_dict = d.to_dict()
         d_dict["slot_name"] = slot
         d_dict["last_self_test"] = latest_st_map.get(slot) or latest_st_map.get(d.name)
@@ -401,14 +381,6 @@ async def monitoring_loop():
     while True:
         try:
             current_profiles = get_profiles()
-            # Normalize legacy profile names if present
-            if "Local-1" not in current_profiles and "TEC" in current_profiles:
-                current_profiles["Local-1"] = current_profiles["TEC"]
-            if "Local-2" not in current_profiles and "Turbo-X" in current_profiles:
-                current_profiles["Local-2"] = current_profiles["Turbo-X"]
-            if "Remote-1" not in current_profiles and "Remote-UPS" in current_profiles:
-                current_profiles["Remote-1"] = current_profiles["Remote-UPS"]
-
             estimator.update_profiles(current_profiles)
 
             loop = asyncio.get_running_loop()
@@ -877,19 +849,12 @@ def get_self_test_history_endpoint(
     return {"status": "ok", "count": len(history), "history": history}
 
 
-@app.get("/api/version")
-def get_version_info():
-    return updater.get_local_version()
-
-
 @app.get("/api/update/status")
-@app.get("/api/check-update")
 def get_update_status():
     return updater.check_for_updates()
 
 
 @app.post("/api/update/perform")
-@app.post("/api/apply-update")
 def perform_update():
     success, msg = updater.run_update()
     if not success:
