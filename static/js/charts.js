@@ -1,5 +1,6 @@
 /**
- * Chart.js Integration for UPS Status Real-Time & Historical Monitoring
+ * Electra - UPS Status Central Monitor
+ * Interactive Chart.js Telemetry Engine with UPS Grouping & Rich Icons
  */
 
 class UPSChartManager {
@@ -7,10 +8,30 @@ class UPSChartManager {
     this.canvas = document.getElementById(canvasId);
     this.chart = null;
     this.currentMetric = 'voltages'; // voltages, load, battery, frequency
-    this.currentUPS = 'all'; // all, TEC, Turbo-X, Remote-UPS
+    this.currentUPS = 'all'; // all, Local-1, Local-2, Remote-1
     this.currentPeriod = 3600; // 300, 3600, 21600, 86400, 604800
     this.cachedData = {};
+    this.slotLabels = {
+      'Local-1': 'UPS 1 (Local)',
+      'Local-2': 'UPS 2 (Local)',
+      'Remote-1': 'UPS 3 (Remote)'
+    };
     this.initChart();
+  }
+
+  setSlotLabel(slot, label) {
+    if (slot && label) {
+      this.slotLabels[slot] = label;
+      this.render();
+    }
+  }
+
+  getSlotDisplayName(key) {
+    if (this.slotLabels[key]) return this.slotLabels[key];
+    if (key.toLowerCase().includes('local-1') || key.toLowerCase().includes('tec')) return 'UPS 1';
+    if (key.toLowerCase().includes('local-2') || key.toLowerCase().includes('turbo')) return 'UPS 2';
+    if (key.toLowerCase().includes('remote')) return 'UPS 3 (Remote)';
+    return key;
   }
 
   initChart() {
@@ -34,34 +55,48 @@ class UPSChartManager {
           legend: {
             position: 'top',
             labels: {
-              color: '#8a99b5',
-              font: { family: 'Outfit', size: 12, weight: '500' },
+              color: '#a0aec0',
+              font: { family: 'Outfit', size: 12, weight: '600' },
               usePointStyle: true,
               pointStyle: 'circle',
-              padding: 18,
+              padding: 16,
+              boxWidth: 8,
+              boxHeight: 8,
             }
           },
           tooltip: {
-            backgroundColor: 'rgba(18, 26, 44, 0.95)',
+            backgroundColor: 'rgba(10, 15, 29, 0.95)',
             titleColor: '#00f0ff',
             bodyColor: '#f0f4fc',
-            borderColor: 'rgba(0, 240, 255, 0.3)',
+            borderColor: 'rgba(0, 240, 255, 0.35)',
             borderWidth: 1,
             padding: 12,
             boxPadding: 6,
             usePointStyle: true,
             titleFont: { family: 'JetBrains Mono', size: 12, weight: '700' },
-            bodyFont: { family: 'Outfit', size: 12 },
+            bodyFont: { family: 'Outfit', size: 12, weight: '500' },
+            callbacks: {
+              label: function(context) {
+                let label = context.dataset.label || '';
+                if (label) {
+                  label += ': ';
+                }
+                if (context.parsed.y !== null) {
+                  label += context.parsed.y;
+                }
+                return label;
+              }
+            }
           }
         },
         scales: {
           x: {
             grid: {
-              color: 'rgba(255, 255, 255, 0.05)',
+              color: 'rgba(255, 255, 255, 0.04)',
               drawBorder: false,
             },
             ticks: {
-              color: '#546481',
+              color: '#64748b',
               font: { family: 'JetBrains Mono', size: 10 },
               maxRotation: 0,
               autoSkip: true,
@@ -77,7 +112,7 @@ class UPSChartManager {
               drawBorder: false,
             },
             ticks: {
-              color: '#8a99b5',
+              color: '#94a3b8',
               font: { family: 'JetBrains Mono', size: 11 },
             }
           },
@@ -96,7 +131,7 @@ class UPSChartManager {
         },
         elements: {
           line: {
-            tension: 0.35,
+            tension: 0.32,
             borderWidth: 2.2,
           },
           point: {
@@ -106,7 +141,7 @@ class UPSChartManager {
           }
         },
         animation: {
-          duration: 400
+          duration: 350
         }
       }
     });
@@ -140,17 +175,36 @@ class UPSChartManager {
     }
   }
 
+  getUPSPalette(name) {
+    const n = String(name).toLowerCase();
+    if (n.includes('local-1') || n.includes('tec') || n.includes('primary')) {
+      return { main: '#00f0ff', sec: '#0088ff', icon: '⚡' };
+    }
+    if (n.includes('local-2') || n.includes('turbo') || n.includes('secondary')) {
+      return { main: '#00e676', sec: '#00b0ff', icon: '⚡' };
+    }
+    if (n.includes('remote') || n.includes('site') || n.includes('ip')) {
+      return { main: '#ffab00', sec: '#ff1744', icon: '📡' };
+    }
+    return { main: '#8c52ff', sec: '#f50057', icon: '🔌' };
+  }
+
   render() {
     if (!this.chart || !this.cachedData) return;
 
-    const colors = {
-      'TEC': { main: '#00f0ff', sec: '#0072ff', bg: 'rgba(0, 240, 255, 0.08)' },
-      'Turbo-X': { main: '#00e676', sec: '#00b0ff', bg: 'rgba(0, 230, 118, 0.08)' },
-      'Remote-UPS': { main: '#ffab00', sec: '#ff1744', bg: 'rgba(255, 171, 0, 0.08)' },
-    };
-
     let allTimestamps = new Set();
-    const upsKeys = this.currentUPS === 'all' ? Object.keys(this.cachedData) : [this.currentUPS];
+    const availableKeys = Object.keys(this.cachedData);
+
+    let upsKeys = [];
+    if (this.currentUPS === 'all') {
+      upsKeys = availableKeys;
+    } else {
+      // Find matching key
+      upsKeys = availableKeys.filter(k => k === this.currentUPS || k.toLowerCase().includes(this.currentUPS.toLowerCase()));
+      if (upsKeys.length === 0 && availableKeys.length > 0) {
+        upsKeys = availableKeys; // fallback
+      }
+    }
 
     upsKeys.forEach(k => {
       const arr = this.cachedData[k] || [];
@@ -159,18 +213,19 @@ class UPSChartManager {
 
     const labels = Array.from(allTimestamps);
     const datasets = [];
-    let showDualY = false;
+    const isGreek = (window.currentLang || 'el') === 'el';
 
     if (this.currentMetric === 'voltages') {
-      this.chart.options.scales.y.title = { display: true, text: 'Voltage (V)', color: '#8a99b5' };
+      this.chart.options.scales.y.title = { display: true, text: isGreek ? 'Τάση (Volts)' : 'Voltage (V)', color: '#8a99b5' };
       this.chart.options.scales.y1.display = false;
 
       upsKeys.forEach(name => {
         const series = this.cachedData[name] || [];
-        const pal = colors[name] || { main: '#8c52ff', sec: '#ff1744' };
+        const pal = this.getUPSPalette(name);
+        const displayName = this.getSlotDisplayName(name);
         
         datasets.push({
-          label: `${name} In (V)`,
+          label: `${pal.icon} [${displayName}] ${isGreek ? 'Είσοδος' : 'Input'} (V)`,
           data: series.map(d => d.input_v),
           borderColor: pal.main,
           backgroundColor: 'transparent',
@@ -178,7 +233,7 @@ class UPSChartManager {
           yAxisID: 'y',
         });
         datasets.push({
-          label: `${name} Out (V)`,
+          label: `🔌 [${displayName}] ${isGreek ? 'Έξοδος' : 'Output'} (V)`,
           data: series.map(d => d.output_v),
           borderColor: pal.sec,
           backgroundColor: 'transparent',
@@ -187,24 +242,24 @@ class UPSChartManager {
         });
       });
     } else if (this.currentMetric === 'load') {
-      showDualY = true;
-      this.chart.options.scales.y.title = { display: true, text: 'Load (%)', color: '#8a99b5' };
+      this.chart.options.scales.y.title = { display: true, text: isGreek ? 'Φορτίο (%)' : 'Load (%)', color: '#8a99b5' };
       this.chart.options.scales.y1.display = true;
-      this.chart.options.scales.y1.title = { display: true, text: 'Power (W)', color: '#ffab00' };
+      this.chart.options.scales.y1.title = { display: true, text: isGreek ? 'Ισχύς (Watts)' : 'Power (W)', color: '#ffab00' };
 
       upsKeys.forEach(name => {
         const series = this.cachedData[name] || [];
-        const pal = colors[name] || { main: '#00f0ff', sec: '#ffab00' };
+        const pal = this.getUPSPalette(name);
+        const displayName = this.getSlotDisplayName(name);
 
         datasets.push({
-          label: `${name} Load %`,
+          label: `📊 [${displayName}] ${isGreek ? 'Φορτίο %' : 'Load %'}`,
           data: series.map(d => d.load_pct),
           borderColor: pal.main,
           backgroundColor: 'transparent',
           yAxisID: 'y',
         });
         datasets.push({
-          label: `${name} Power (W)`,
+          label: `⚡ [${displayName}] ${isGreek ? 'Ισχύς W' : 'Power W'}`,
           data: series.map(d => d.load_w),
           borderColor: pal.sec || '#ffab00',
           backgroundColor: 'transparent',
@@ -213,41 +268,42 @@ class UPSChartManager {
         });
       });
     } else if (this.currentMetric === 'battery') {
-      showDualY = true;
-      this.chart.options.scales.y.title = { display: true, text: 'Battery (%)', color: '#8a99b5' };
+      this.chart.options.scales.y.title = { display: true, text: isGreek ? 'Στάθμη Μπαταρίας (%)' : 'Battery (%)', color: '#8a99b5' };
       this.chart.options.scales.y1.display = true;
-      this.chart.options.scales.y1.title = { display: true, text: 'Voltage (V)', color: '#00e676' };
+      this.chart.options.scales.y1.title = { display: true, text: isGreek ? 'Τάση Μπαταρίας (V)' : 'Battery (V)', color: '#00e676' };
 
       upsKeys.forEach(name => {
         const series = this.cachedData[name] || [];
-        const pal = colors[name] || { main: '#00e676', sec: '#00f0ff' };
+        const pal = this.getUPSPalette(name);
+        const displayName = this.getSlotDisplayName(name);
 
         datasets.push({
-          label: `${name} Battery %`,
+          label: `🔋 [${displayName}] ${isGreek ? 'Στάθμη %' : 'Battery %'}`,
           data: series.map(d => d.battery_pct),
           borderColor: pal.main,
           backgroundColor: 'transparent',
           yAxisID: 'y',
         });
         datasets.push({
-          label: `${name} Battery (V)`,
+          label: `⚡ [${displayName}] ${isGreek ? 'Τάση V' : 'Voltage V'}`,
           data: series.map(d => d.battery_v),
-          borderColor: pal.sec || '#00f0ff',
+          borderColor: pal.sec || '#00e676',
           backgroundColor: 'transparent',
           borderDash: [3, 3],
           yAxisID: 'y1',
         });
       });
     } else if (this.currentMetric === 'frequency') {
-      this.chart.options.scales.y.title = { display: true, text: 'Frequency (Hz)', color: '#8a99b5' };
+      this.chart.options.scales.y.title = { display: true, text: isGreek ? 'Συχνότητα (Hz)' : 'Frequency (Hz)', color: '#8a99b5' };
       this.chart.options.scales.y1.display = false;
 
       upsKeys.forEach(name => {
         const series = this.cachedData[name] || [];
-        const pal = colors[name] || { main: '#8c52ff' };
+        const pal = this.getUPSPalette(name);
+        const displayName = this.getSlotDisplayName(name);
 
         datasets.push({
-          label: `${name} Input (Hz)`,
+          label: `〰️ [${displayName}] ${isGreek ? 'Συχνότητα Hz' : 'Frequency Hz'}`,
           data: series.map(d => d.input_hz),
           borderColor: pal.main,
           backgroundColor: 'transparent',

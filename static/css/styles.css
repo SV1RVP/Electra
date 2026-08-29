@@ -797,48 +797,102 @@ body {
   font-weight: 700;
 }
 
-.chart-controls {
+.chart-controls-group {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  width: 100%;
+  margin-top: 6px;
 }
 
 .segmented-control {
-  display: flex;
-  background: rgba(0, 0, 0, 0.25);
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
-  padding: 3px;
-  gap: 2px;
+  padding: 4px;
+  gap: 4px;
+  backdrop-filter: blur(8px);
 }
 
 .segmented-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-muted);
-  padding: 6px 14px;
-  border-radius: calc(var(--radius-md) - 3px);
+  padding: 7px 13px;
+  border-radius: calc(var(--radius-md) - 4px);
   font-family: var(--font-sans);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.segmented-btn .tab-icon {
+  font-size: 0.92rem;
+  line-height: 1;
 }
 
 .segmented-btn:hover {
   color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.segmented-btn.active {
-  background: var(--accent-cyan);
-  color: #070a13;
-  box-shadow: 0 2px 10px rgba(0, 240, 255, 0.3);
+/* Metric Buttons Active */
+.metric-tab-btn.active {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(0, 114, 255, 0.2));
+  border-color: rgba(0, 240, 255, 0.4);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+}
+
+/* UPS Selector Active Styles */
+.ups-tab-btn.active[data-ups="all"] {
+  background: linear-gradient(135deg, rgba(140, 82, 255, 0.25), rgba(41, 121, 255, 0.25));
+  border-color: rgba(140, 82, 255, 0.5);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(140, 82, 255, 0.3);
+}
+
+.ups-tab-btn.active[data-ups="Local-1"] {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(0, 114, 255, 0.25));
+  border-color: rgba(0, 240, 255, 0.6);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.35);
+}
+
+.ups-tab-btn.active[data-ups="Local-2"] {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.25), rgba(0, 176, 255, 0.25));
+  border-color: rgba(0, 230, 118, 0.6);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(0, 230, 118, 0.35);
+}
+
+.ups-tab-btn.active[data-ups="Remote-1"] {
+  background: linear-gradient(135deg, rgba(255, 171, 0, 0.25), rgba(255, 23, 68, 0.25));
+  border-color: rgba(255, 171, 0, 0.6);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(255, 171, 0, 0.35);
+}
+
+/* Period Tabs Active */
+.period-tab-btn.active {
+  background: var(--bg-card-hover);
+  border-color: var(--border-glow);
+  color: var(--accent-cyan);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .chart-wrapper {
   position: relative;
-  height: 380px;
+  height: 420px;
   width: 100%;
 }
 
@@ -1300,6 +1354,22 @@ body {
 }
 
 /* Responsive adjustments */
+@media (max-width: 900px) {
+  .chart-controls-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .segmented-control {
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+  .segmented-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 600px) {
   .app-container { padding: 12px; }
   .app-header { flex-direction: column; align-items: flex-start; gap: 14px; }
@@ -1308,3 +1378,4 @@ body {
   .ups-card-actions { flex-direction: column; }
   .btn-action-pill { width: 100%; }
 }
+

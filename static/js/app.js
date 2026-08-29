@@ -507,6 +507,16 @@ function initEventListeners() {
     btnRunAll.addEventListener('click', handleRunAllSelfTest);
   }
 
+  // Chart UPS Tabs (Segmented Buttons with Icons)
+  document.querySelectorAll('.ups-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ups-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (chartManager) chartManager.setUPS(btn.getAttribute('data-ups'));
+    });
+  });
+
+  // Chart Metric Tabs with Icons
   document.querySelectorAll('.metric-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.metric-tab-btn').forEach(b => b.classList.remove('active'));
@@ -515,6 +525,7 @@ function initEventListeners() {
     });
   });
 
+  // Chart Period Tabs with Icons
   document.querySelectorAll('.period-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.period-tab-btn').forEach(b => b.classList.remove('active'));
@@ -522,13 +533,6 @@ function initEventListeners() {
       if (chartManager) chartManager.setPeriod(parseInt(btn.getAttribute('data-period')));
     });
   });
-
-  const chartUpsSelect = document.getElementById('chartUpsSelect');
-  if (chartUpsSelect) {
-    chartUpsSelect.addEventListener('change', (e) => {
-      if (chartManager) chartManager.setUPS(e.target.value);
-    });
-  }
 
   document.getElementById('exportCsvBtn')?.addEventListener('click', () => {
     window.open('/api/export/csv?type=events', '_blank');
@@ -579,6 +583,26 @@ async function fetchInitialData() {
   }
 }
 
+function updateChartTabs(profMap) {
+  if (!profMap) return;
+  for (const [slot, info] of Object.entries(profMap)) {
+    const disp = info.display_name || slot;
+    if (chartManager) {
+      chartManager.setSlotLabel(slot, disp);
+    }
+    if (slot === 'Local-1') {
+      const lbl = document.getElementById('chartLabelLocal1');
+      if (lbl) lbl.textContent = disp;
+    } else if (slot === 'Local-2') {
+      const lbl = document.getElementById('chartLabelLocal2');
+      if (lbl) lbl.textContent = disp;
+    } else if (slot === 'Remote-1') {
+      const lbl = document.getElementById('chartLabelRemote');
+      if (lbl) lbl.textContent = disp;
+    }
+  }
+}
+
 function updateDashboard(payload) {
   if (!payload || !payload.ups_list) return;
 
@@ -586,7 +610,7 @@ function updateDashboard(payload) {
   payload.ups_list.forEach(u => {
     profMap[u.name] = { display_name: u.display_name || u.name, location: u.location };
   });
-  updateChartSelectOptions(profMap);
+  updateChartTabs(profMap);
 
   const summary = payload.summary || {};
   const totalWattsEl = document.getElementById('summaryTotalWatts');
