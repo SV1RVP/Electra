@@ -8,6 +8,8 @@
 
 **Electra** is an advanced, multi-UPS real-time monitoring and alerting system designed for home labs, server rooms, and critical infrastructure. It combines local high-speed USB HID drivers with remote telemetry agents over LAN/WireGuard VPN, rendering a sleek **Cyberpunk/Glassmorphic WebUI Dashboard**, interactive **Chart.js** historical telemetry, and intelligent **Viber Channel Bot** notifications.
 
+![Electra UPS Status Central Monitor Dashboard](imag.png)
+
 **Creator:** Alexandros - Ermis Tsourapas (SV1RVP)  
 **License:** GNU Affero General Public License v3.0 (AGPL-3.0)
 
