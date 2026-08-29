@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Electra - UPS Status Central Monitor</title>
+  <meta name="description" content="Electra - Centralized Multi-UPS Real-Time Monitoring Web Dashboard with Viber Alerts, Live Charts, and Remote Telemetry.">
+  <link rel="icon" type="image/png" href="/static/logo.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- HEADER & NAVBAR -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-logo" style="background: transparent; padding: 0; box-shadow: none;">
+          <img src="/static/logo.png" id="electraLogoImg" alt="Electra Logo" style="width: 46px; height: 46px; border-radius: 12px; object-fit: cover; box-shadow: 0 4px 15px rgba(0, 240, 255, 0.35); border: 1px solid rgba(0, 240, 255, 0.3);">
+        </div>
+        <div class="brand-title">
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <h1>ELECTRA</h1>
+            <div class="update-status-inline" id="updateContainer">
+              <span class="version-badge" id="versionTag">v1.2.0</span>
+              <span class="update-info-text" id="updateInfo" data-i18n="update_checking">Checking...</span>
+              <button type="button" class="btn-update-mini" id="btnCheckUpdate" data-i18n="btn_check_update" title="Check for updates">Έλεγχος</button>
+              <button type="button" class="btn-update-now" id="btnUpdateNow" style="display: none;" data-i18n="btn_update_now" title="Download update and restart">⚡ Ενημέρωση Τώρα</button>
+            </div>
+          </div>
+          <p>UPS Status Central Monitor</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="live-indicator">
+          <span class="live-dot"></span>
+          <span data-i18n="live_status">LIVE STREAM</span>
+        </div>
+
+        <button id="langToggleBtn" class="btn-icon" title="Toggle Language">🇬🇷 EL</button>
+        <button id="soundToggleBtn" class="btn-icon" data-active="true" title="Toggle Audio Alarms">🔊 Audio ON</button>
+        <button id="themeToggleBtn" class="btn-icon" title="Toggle Theme">🌙 Dark</button>
+        <button id="settingsBtn" class="btn-icon btn-primary" title="Settings">
+          <span>⚙️</span>
+          <span data-i18n="btn_settings">Ρυθμίσεις</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- GLOBAL SUMMARY STRIP -->
+    <section class="summary-grid">
+      <div class="summary-card" id="summaryGridCard">
+        <div class="summary-icon">⚡</div>
+        <div class="summary-info">
+          <h4 data-i18n="grid_status">ΚΑΤΑΣΤΑΣΗ ΔΙΚΤΥΟΥ</h4>
+          <div class="value" id="summaryGridStatus" data-i18n="status_normal">ΟΜΑΛΗ (ΔΕΗ OK)</div>
+          <div class="sub-text">230V / 50Hz</div>
+        </div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-icon">🔥</div>
+        <div class="summary-info">
+          <h4 data-i18n="total_power">ΣΥΝΟΛΙΚΗ ΙΣΧΥΣ</h4>
+          <div class="value" id="summaryTotalWatts">0 W</div>
+          <div class="sub-text" data-i18n="sub_real_consumption">Πραγματική κατανάλωση</div>
+        </div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-icon">📊</div>
+        <div class="summary-info">
+          <h4 data-i18n="avg_load">ΜΕΣΟ ΦΟΡΤΙΟ</h4>
+          <div class="value" id="summaryAvgLoad">0%</div>
+          <div class="sub-text" data-i18n="sub_alarm_limit">Όριο συναγερμού: 70%</div>
+        </div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-icon">🛡️</div>
+        <div class="summary-info">
+          <h4 data-i18n="active_units">ΕΝΕΡΓΑ UPS</h4>
+          <div class="value" id="summaryActiveUnits">0 / 3</div>
+          <div class="sub-text" data-i18n="sub_active_desc">2 Local + 1 Remote</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MULTI-UPS CARDS CONTAINER -->
+    <section class="ups-grid" id="upsGridContainer">
+      <!-- Dynamic UPS Cards injected via app.js -->
+    </section>
+
+    <!-- CHARTS & HISTORICAL TELEMETRY -->
+    <section class="panel-card">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>📈</span>
+          <h2 data-i18n="btn_charts">Διαδραστικά Γραφήματα & Τηλεμετρία</h2>
+        </div>
+
+        <div class="chart-controls">
+          <!-- Metric Tabs -->
+          <div class="segmented-control">
+            <button class="segmented-btn metric-tab-btn active" data-metric="voltages" data-i18n="tab_voltages">Τάσεις (V)</button>
+            <button class="segmented-btn metric-tab-btn" data-metric="load" data-i18n="tab_load">Φορτίο & Watts</button>
+            <button class="segmented-btn metric-tab-btn" data-metric="battery" data-i18n="tab_battery">Μπαταρία (% / V)</button>
+            <button class="segmented-btn metric-tab-btn" data-metric="frequency" data-i18n="tab_freq">Συχνότητα (Hz)</button>
+          </div>
+
+          <!-- UPS Filter Dropdown -->
+          <select id="chartUpsSelect" class="form-select" style="width: auto; padding: 6px 12px;">
+            <option value="all" data-i18n="chart_all_ups">Όλα τα UPS (Σύγκριση)</option>
+            <option value="Local-1">Primary UPS (USB 1)</option>
+            <option value="Local-2">Secondary UPS (USB 2)</option>
+            <option value="Remote-1">Remote UPS (Network / IP)</option>
+          </select>
+
+          <!-- Period Tabs -->
+          <div class="segmented-control">
+            <button class="segmented-btn period-tab-btn" data-period="300" data-i18n="period_5m">5m Live</button>
+            <button class="segmented-btn period-tab-btn active" data-period="3600" data-i18n="period_1h">1 Ώρα</button>
+            <button class="segmented-btn period-tab-btn" data-period="21600" data-i18n="period_6h">6 Ώρες</button>
+            <button class="segmented-btn period-tab-btn" data-period="86400" data-i18n="period_24h">24 Ώρες</button>
+            <button class="segmented-btn period-tab-btn" data-period="604800" data-i18n="period_7d">7 Ημέρες</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-wrapper">
+        <canvas id="telemetryChart"></canvas>
+      </div>
+    </section>
+
+    <!-- EVENT & INCIDENT LOG TABLE -->
+    <section class="panel-card">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>📜</span>
+          <h2 data-i18n="events_title">Καταγραφή Συμβάντων & Ειδοποιήσεων</h2>
+        </div>
+
+        <div class="header-actions">
+          <button id="exportCsvBtn" class="btn-icon">
+            <span>📥</span>
+            <span data-i18n="btn_export_csv">Εξαγωγή CSV</span>
+          </button>
+          <button id="exportJsonBtn" class="btn-icon">
+            <span>💾</span>
+            <span data-i18n="btn_export_json">Εξαγωγή JSON</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="events-table-wrapper">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th data-i18n="col_time">Ώρα</th>
+              <th data-i18n="col_ups">UPS</th>
+              <th data-i18n="col_type">Τύπος</th>
+              <th data-i18n="col_severity">Σοβαρότητα</th>
+              <th data-i18n="col_message">Μήνυμα</th>
+            </tr>
+          </thead>
+          <tbody id="eventsTableBody">
+            <!-- Dynamic Event Rows -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="app-footer" style="margin-top: 24px; padding: 16px 22px; background: rgba(13, 22, 38, 0.7); border: 1px solid var(--border-glass); border-radius: var(--radius-lg); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 0.85rem; color: var(--text-muted);">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <strong style="color: var(--text-main); font-size: 0.95rem;">Electra</strong>
+        <span>•</span>
+        <span>UPS Status Central Monitor</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <span style="color: var(--accent-cyan); background: rgba(0, 240, 255, 0.1); padding: 3px 12px; border-radius: 999px; border: 1px solid rgba(0, 240, 255, 0.25);">👨‍💻 Δημιουργός: Alexandros - Ermis Tsourapas (SV1RVP)</span>
+        <span style="background: rgba(255, 255, 255, 0.05); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border-glass);">⚖️ Άδεια: GNU AGPLv3</span>
+        <span>2026</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 data-i18n="settings_title">Ρυθμίσεις Συστήματος & Ειδοποιήσεων</h3>
+        <button class="modal-close-btn" id="closeSettingsBtn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- Viber Settings -->
+        <div class="settings-section">
+          <h4 data-i18n="sec_viber">📱 Ρυθμίσεις Viber Channel & Alerts</h4>
+          
+          <div class="form-group">
+            <label class="form-label" data-i18n="lbl_viber_token">Viber Channel / Bot Auth Token:</label>
+            <input type="text" id="viberTokenInput" class="form-input" placeholder="e.g. 54440d6358705a8c-...">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" data-i18n="lbl_viber_sender">Όνομα Αποστολέα (Sender Name):</label>
+            <input type="text" id="viberSenderInput" class="form-input" value="UPS Monitor">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" data-i18n="lbl_viber_receiver">Receiver ID (Προαιρετικό - για Direct User Bot μηνύματα):</label>
+            <input type="text" id="viberReceiverInput" class="form-input" placeholder="Αφήστε κενό για αυτόματη αποστολή στο Κανάλι">
+          </div>
+
+          <div class="form-group" style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+            <button id="testViberBtn" class="btn-icon" style="flex: 1; min-width: 180px; justify-content: center; background: #7360f2; color: white;">
+              <span>📤</span>
+              <span data-i18n="btn_test_viber">Αποστολή Δοκιμαστικού Viber</span>
+            </button>
+            <button id="dailyReportBtn" class="btn-icon" style="flex: 1; min-width: 180px; justify-content: center;">
+              <span>📊</span>
+              <span data-i18n="btn_daily_report_now">Αποστολή Ημερήσιας Αναφοράς Τώρα</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Notification Triggers -->
+        <div class="settings-section">
+          <h4 data-i18n="sec_triggers">⚡ Όρια & Αυτόματες Ειδοποιήσεις</h4>
+
+          <div class="form-group">
+            <label class="form-label" data-i18n="lbl_daily_time">Ώρα Ημερήσιας Αναφοράς (HH:MM):</label>
+            <input type="time" id="dailyReportTimeInput" class="form-input" style="max-width: 160px;" value="09:00">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="lbl_overload_thresh">Όριο Συναγερμού Υπερφόρτωσης:</span> <strong id="overloadValDisplay" style="color: var(--accent-amber);">70%</strong></label>
+            <input type="range" id="overloadSlider" min="30" max="95" step="1" value="70" class="form-input" oninput="document.getElementById('overloadValDisplay').textContent = this.value + '%'">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="lbl_battery_low_thresh">Όριο Κρίσιμα Χαμηλής Ισχύος Μπαταρίας:</span> <strong id="batteryLowValDisplay" style="color: var(--accent-red);">20%</strong></label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <input type="range" id="batteryLowSlider" min="5" max="50" step="1" value="20" class="form-input" style="flex: 1;" oninput="document.getElementById('batteryLowInput').value = this.value; document.getElementById('batteryLowValDisplay').textContent = this.value + '%'">
+              <input type="number" id="batteryLowInput" min="5" max="60" value="20" class="form-input" style="width: 85px; text-align: center;" oninput="document.getElementById('batteryLowSlider').value = this.value; document.getElementById('batteryLowValDisplay').textContent = this.value + '%'">
+            </div>
+            <p style="font-size: 0.74rem; color: var(--text-dim); margin-top: 4px;" data-i18n="desc_battery_low">
+              Εμφάνιση της ένδειξης <strong>«Κρίσιμη χαμηλή ισχύς»</strong> στο WebUI και στο Viber όταν η στάθμη μπαταρίας πέσει σε αυτό το επίπεδο.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="lbl_outage_repeat">Διάστημα Επαναλαμβανόμενης Ενημέρωσης σε Διακοπή (Viber):</span> <strong id="outageRepeatValDisplay" style="color: var(--accent-cyan);">60 sec</strong></label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <input type="range" id="outageRepeatSlider" min="15" max="300" step="5" value="60" class="form-input" style="flex: 1;" oninput="document.getElementById('outageRepeatInput').value = this.value; document.getElementById('outageRepeatValDisplay').textContent = this.value + ' sec'">
+              <input type="number" id="outageRepeatInput" min="10" max="600" value="60" class="form-input" style="width: 85px; text-align: center;" oninput="document.getElementById('outageRepeatSlider').value = this.value; document.getElementById('outageRepeatValDisplay').textContent = this.value + ' sec'">
+            </div>
+            <p style="font-size: 0.74rem; color: var(--text-dim); margin-top: 4px;" data-i18n="desc_outage_repeat">
+              Αποστολή ζωντανής κατάστασης (Μπαταρία %, Αυτονομία, Φορτίο, Διάρκεια) στο Viber κάθε Χ δευτερόλεπτα κατά τη διάρκεια της διακοπής.
+            </p>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkOutageAlert" checked>
+              <span data-i18n="chk_outage">🚨 Ειδοποίηση Άμεσης Διακοπής Ρεύματος (Power Outage)</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkOutageRepeatAlert" checked>
+              <span data-i18n="chk_outage_repeat">⏳ Επαναλαμβανόμενη ενημέρωση κατά τη διάρκεια διακοπής (κάθε X sec)</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkRestoreAlert" checked>
+              <span data-i18n="chk_restore">🟢 Ειδοποίηση Επαναφοράς Ρεύματος με διάρκεια διακοπής</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkOverloadAlert" checked>
+              <span data-i18n="chk_overload">🔥 Ειδοποίηση Υπερφόρτωσης Φορτίου (> 70%)</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkDisconnectAlert" checked>
+              <span data-i18n="chk_disconnect">🔌 Ειδοποίηση Απώλειας / Επαναφοράς Επικοινωνίας με UPS</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkLowBattAlert" checked>
+              <span data-i18n="chk_low_batt">🪫 Ειδοποίηση «Κρίσιμη χαμηλή ισχύς» Μπαταρίας</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkDailyReport" checked>
+              <span data-i18n="chk_daily">📊 Ημερήσια Αναφορά Κατάστασης στην καθορισμένη ώρα</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkSelfTestAlert" checked>
+              <span data-i18n="chk_selftest_alert">🧪 Ειδοποίηση Αποτελέσματος Self-Test (Επιτυχία / Αποτυχία)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Self-Test Scheduling Settings -->
+        <div class="settings-section">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
+            <h4 data-i18n="sec_self_test" style="margin: 0;">🧪 Αυτόματο Self-Test & Χρονοδιάγραμμα</h4>
+            <button type="button" id="btnRunAllSelfTest" class="btn-icon" style="background: rgba(140, 82, 255, 0.15); border: 1px solid rgba(140, 82, 255, 0.35); color: var(--accent-purple); font-size: 0.8rem; padding: 6px 12px;">
+              <span>🧪</span>
+              <span data-i18n="btn_run_all_selftest">Self-Test σε όλα τα UPS</span>
+            </button>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;" data-i18n="desc_self_test_schedule">
+            Ρυθμίστε τον αυτόματο περιοδικό έλεγχο μπαταρίας των UPS με χρονοδιακόπτη (Timer) και αυτόματη αποστολή feedback αποτελέσματος στο Viber.
+          </p>
+
+          <div style="margin-bottom: 12px;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkSelfTestScheduleEnabled">
+              <span data-i18n="chk_enable_selftest_schedule"><strong>Ενεργοποίηση Προγραμματισμένου Self-Test (Timer)</strong></span>
+            </label>
+          </div>
+
+          <div id="selfTestScheduleConfigBox" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; background: rgba(0, 0, 0, 0.2); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-glass);">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="lbl_selftest_freq">Συχνότητα Ελέγχου:</label>
+              <select id="selfTestFrequencySelect" class="form-input">
+                <option value="daily" data-i18n="opt_freq_daily">Καθημερινά</option>
+                <option value="weekly" data-i18n="opt_freq_weekly">Εβδομαδιαία</option>
+                <option value="monthly" data-i18n="opt_freq_monthly">Μηνιαία</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="lbl_selftest_time">Ώρα Δοκιμής (HH:MM):</label>
+              <input type="time" id="selfTestTimeInput" class="form-input" value="09:00">
+            </div>
+
+            <div class="form-group" id="selfTestDayOfWeekGroup" style="margin-bottom: 0; display: none;">
+              <label class="form-label" data-i18n="lbl_selftest_day_week">Ημέρα Εβδομάδας:</label>
+              <select id="selfTestDayOfWeekSelect" class="form-input">
+                <option value="sunday" data-i18n="opt_day_sunday">Κυριακή</option>
+                <option value="monday" data-i18n="opt_day_monday">Δευτέρα</option>
+                <option value="tuesday" data-i18n="opt_day_tuesday">Τρίτη</option>
+                <option value="wednesday" data-i18n="opt_day_wednesday">Τετάρτη</option>
+                <option value="thursday" data-i18n="opt_day_thursday">Πέμπτη</option>
+                <option value="friday" data-i18n="opt_day_friday">Παρασκευή</option>
+                <option value="saturday" data-i18n="opt_day_saturday">Σάββατο</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="selfTestDayOfMonthGroup" style="margin-bottom: 0; display: none;">
+              <label class="form-label" data-i18n="lbl_selftest_day_month">Ημέρα Μήνα (1-31):</label>
+              <input type="number" id="selfTestDayOfMonthInput" min="1" max="31" value="1" class="form-input">
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkSelfTestViberNotify" checked>
+              <span data-i18n="chk_selftest_viber">📱 Αποστολή αναλυτικού αποτελέσματος Self-Test στο Viber Channel</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- UPS Profiles, Names & Locations -->
+        <div class="settings-section">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
+            <h4 data-i18n="sec_profiles" style="margin: 0;">⚡ Προφίλ, Ονόματα & Τοποθεσίες UPS</h4>
+            <button type="button" id="btnRescanDevices" class="btn-icon" style="background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.35); color: var(--accent-cyan); font-size: 0.8rem; padding: 6px 12px;">
+              <span id="rescanIcon">🔍</span>
+              <span data-i18n="btn_rescan_usb">Επανασάρωση Θυρών USB</span>
+            </button>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;" data-i18n="desc_profiles">
+            Ορίστε τα ονόματα εμφάνισης και τις τοποθεσίες των 3 UPS. Οι θύρες USB κλειδώνονται μόνιμα ώστε κάθε UPS να αντιστοιχεί σταθερά στο ίδιο Slot.
+          </p>
+
+          <div class="ups-profiles-settings-grid">
+            <!-- UPS 1: Local-1 (USB 1) -->
+            <div class="ups-profile-config-card">
+              <div class="profile-card-header">
+                <span class="profile-tag" data-i18n="tag_ups1">UPS 1 (Local USB 1)</span>
+                <label class="profile-enable-switch">
+                  <input type="checkbox" id="local1ProfileEnabled" checked>
+                  <span data-i18n="lbl_enabled">Ενεργό</span>
+                </label>
+              </div>
+              <div class="form-group" style="margin-bottom: 8px;">
+                <div id="local1BindingBadge" style="font-size: 0.73rem; font-family: var(--font-mono); color: var(--accent-cyan); background: rgba(0, 240, 255, 0.08); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(0, 240, 255, 0.2); word-break: break-all;">
+                  🔒 Θύρα: Auto-Scan
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_display_name">Όνομα Εμφάνισης (Display Name):</label>
+                <input type="text" id="local1DisplayNameInput" class="form-input" placeholder="e.g. Primary UPS (USB 1)">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_location">Τοποθεσία (Location):</label>
+                <input type="text" id="local1LocationInput" class="form-input" placeholder="e.g. Local Port 1">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_rated_w">Ονομαστική Ισχύς (Watts):</label>
+                <input type="number" id="local1RatedWInput" class="form-input" placeholder="1200">
+              </div>
+            </div>
+
+            <!-- UPS 2: Local-2 (USB 2) -->
+            <div class="ups-profile-config-card">
+              <div class="profile-card-header">
+                <span class="profile-tag" data-i18n="tag_ups2">UPS 2 (Local USB 2)</span>
+                <label class="profile-enable-switch">
+                  <input type="checkbox" id="local2ProfileEnabled" checked>
+                  <span data-i18n="lbl_enabled">Ενεργό</span>
+                </label>
+              </div>
+              <div class="form-group" style="margin-bottom: 8px;">
+                <div id="local2BindingBadge" style="font-size: 0.73rem; font-family: var(--font-mono); color: var(--accent-cyan); background: rgba(0, 240, 255, 0.08); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(0, 240, 255, 0.2); word-break: break-all;">
+                  🔒 Θύρα: Auto-Scan
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_display_name">Όνομα Εμφάνισης (Display Name):</label>
+                <input type="text" id="local2DisplayNameInput" class="form-input" placeholder="e.g. Secondary UPS (USB 2)">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_location">Τοποθεσία (Location):</label>
+                <input type="text" id="local2LocationInput" class="form-input" placeholder="e.g. Local Port 2">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_rated_w">Ονομαστική Ισχύς (Watts):</label>
+                <input type="number" id="local2RatedWInput" class="form-input" placeholder="1200">
+              </div>
+            </div>
+
+            <!-- UPS 3: Remote-1 (Network / IP) -->
+            <div class="ups-profile-config-card">
+              <div class="profile-card-header">
+                <span class="profile-tag" data-i18n="tag_ups3">UPS 3 (Remote Network / IP)</span>
+                <label class="profile-enable-switch">
+                  <input type="checkbox" id="remoteProfileEnabled" checked>
+                  <span data-i18n="lbl_enabled">Ενεργό</span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_display_name">Όνομα Εμφάνισης (Display Name):</label>
+                <input type="text" id="remoteDisplayNameInput" class="form-input" placeholder="e.g. Remote UPS (Network / IP)">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_location">Τοποθεσία (Location):</label>
+                <input type="text" id="remoteLocationInput" class="form-input" placeholder="e.g. Remote Site">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_rated_w">Ονομαστική Ισχύς (Watts):</label>
+                <input type="number" id="remoteRatedWInput" class="form-input" placeholder="1200">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database & Telemetry History Retention -->
+        <div class="settings-section">
+          <h4 data-i18n="sec_database">📊 Ρυθμίσεις Βάσης Δεδομένων & Ιστορικού</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;" data-i18n="desc_database">
+            Ρυθμίστε τη συχνότητα καταγραφής μετρήσεων στο δίσκο και τη διάρκεια διατήρησης ιστορικού τηλεμετρίας.
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <!-- Log Interval -->
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="form-label" data-i18n="lbl_db_interval">Συχνότητα Καταγραφής (Log Interval):</label>
+                <span id="dbIntervalValDisplay" style="font-size: 0.82rem; font-family: var(--font-mono); color: var(--accent-cyan);">60 sec</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px;">
+                <input type="range" id="dbIntervalSlider" min="2" max="300" step="1" value="60" class="form-slider" oninput="document.getElementById('dbIntervalValDisplay').textContent = this.value + ' sec'; document.getElementById('dbIntervalInput').value = this.value;">
+                <input type="number" id="dbIntervalInput" min="2" max="300" value="60" class="form-input" style="width: 80px; text-align: center;" oninput="document.getElementById('dbIntervalSlider').value = this.value; document.getElementById('dbIntervalValDisplay').textContent = this.value + ' sec';">
+              </div>
+              <p style="font-size: 0.74rem; color: var(--text-dim); margin-top: 4px;" data-i18n="desc_db_interval">
+                Πόσο συχνά γράφονται οι μετρήσεις στη βάση δεδομένων (προεπιλογή: 60 δευτερόλεπτα).
+              </p>
+            </div>
+
+            <!-- Retention Days -->
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="form-label" data-i18n="lbl_db_retention">Διατήρηση Ιστορικού (Ημέρες):</label>
+                <span id="dbRetentionValDisplay" style="font-size: 0.82rem; font-family: var(--font-mono); color: var(--accent-cyan);">30 ημέρες</span>
+              </div>
+              <select id="dbRetentionSelect" class="form-input" style="margin-top: 4px;">
+                <option value="7">7 Ημέρες (1 Εβδομάδα)</option>
+                <option value="14">14 Ημέρες (2 Εβδομάδες)</option>
+                <option value="30" selected>30 Ημέρες (1 Μήνας - Προτεινόμενο)</option>
+                <option value="60">60 Ημέρες (2 Μήνες)</option>
+                <option value="90">90 Ημέρες (3 Μήνες)</option>
+                <option value="180">180 Ημέρες (6 Μήνες)</option>
+                <option value="365">365 Ημέρες (1 Έτος)</option>
+                <option value="0">♾️ Άπειρο / Χωρίς Διαγραφή (Infinite)</option>
+              </select>
+              <p style="font-size: 0.74rem; color: var(--text-dim); margin-top: 4px;" data-i18n="desc_db_retention">
+                Επιλέξτε πόσο παλιές εγγραφές θα διατηρούνται στη βάση δεδομένων SQLite. Επιλέξτε «Άπειρο» για απεριόριστη διατήρηση.
+              </p>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-glass);">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkDbLogOnChange" checked>
+              <span data-i18n="chk_db_log_on_change">⚡ Αυτόματη καταγραφή σε σημαντική μεταβολή τάσης/φορτίου (αντί για χρονική καθυστέρηση)</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="chkDbOutageFastLog" checked>
+              <span data-i18n="chk_db_outage_fast_log">🚨 Υψηλή ανάλυση καταγραφής (ανά 1 sec) κατά τη διάρκεια διακοπής ρεύματος (Μπαταρία)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Remote IP Push Config -->
+        <div class="settings-section">
+          <h4 data-i18n="sec_remote_agent">🌐 Απομακρυσμένο UPS (Remote Agent over IP)</h4>
+          <div class="form-group">
+            <label class="form-label" data-i18n="lbl_api_key">Secret API Key για Push Τηλεμετρίας:</label>
+            <input type="text" id="remoteApiKeyInput" class="form-input" value="ups_remote_secret_key_123">
+            <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;" data-i18n="desc_api_key">
+              Χρησιμοποιείται στο <code>ups_agent.py</code> για ασφαλή μετάδοση δεδομένων στο <code>/api/remote/push</code>.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button id="cancelSettingsBtn" class="btn-icon" data-i18n="btn_close">Κλείσιμο</button>
+        <button id="saveSettingsBtn" class="btn-icon btn-primary" data-i18n="btn_save">💾 Αποθήκευση</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Application Logic -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

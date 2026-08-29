@@ -1,0 +1,45 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Database and SQLite telemetry history (Keep local database private)
+ups_history.db
+ups_history.db-shm
+ups_history.db-wal
+*.db
+*.db-shm
+*.db-wal
+test_*.db
+
+# Application Configuration & Private Tokens
+# Use config.example.json for clean public templates
+config.json
+profiles.json
+learning.json
+app.log
+*.log
+
+# Temporary Update Artifacts
+update.zip
+_temp_update/
+update_helper.bat
+restart_helper.bat
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+ehthumbs.db

@@ -1,0 +1,8 @@
+{
+  "server_url": "http://<YOUR_WIREGUARD_SERVER_IP>:8088/api/remote/push",
+  "api_key": "ups_remote_secret_key_123",
+  "ups_name": "Remote-UPS",
+  "location": "Remote Site (Tescom Leo)",
+  "poll_interval_seconds": 2.0,
+  "driver_type": "auto"
+}

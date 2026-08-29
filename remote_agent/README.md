@@ -1,0 +1,40 @@
+# 🔋 Remote UPS Monitoring Agent
+
+Αυτός ο φάκελος περιέχει τον αυτόνομο client/agent για την παρακολούθηση UPS συνδεδεμένου μέσω USB σε απομακρυσμένο υπολογιστή και την αποστολή των μετρήσεων στον κεντρικό **UPS Status Web Server** (μέσω WireGuard / LAN / Internet).
+
+---
+
+## 🚀 Οδηγίες Εγκατάστασης & Εκτέλεσης στο Remote PC
+
+### Βήμα 1: Αντιγραφή Φακέλου
+Αντιγράψτε ολόκληρο τον φάκελο `remote_agent` στο απομακρυσμένο PC (π.χ. στην Επιφάνεια Εργασίας `Desktop\remote_agent`).
+
+### Βήμα 2: Εγκατάσταση (μία φορά)
+- **Windows**: Τρέξτε το **`install-windows.bat`** (διπλό κλικ).
+- **Linux / Raspberry Pi**: Τρέξτε `chmod +x install-linux.sh && ./install-linux.sh`.
+
+### Βήμα 3: Ρύθμιση IP (WireGuard / LAN)
+Ανοίξτε το αρχείο **`agent_config.json`** με ένα κειμενογράφο και ρυθμίστε την IP του κεντρικού Server:
+
+```json
+{
+  "server_url": "http://<IP_TOU_SERVER>:8088/api/remote/push",
+  "api_key": "ups_remote_secret_key_123",
+  "ups_name": "Remote-1",
+  "location": "Remote Site",
+  "poll_interval_seconds": 2.0,
+  "driver_type": "auto"
+}
+```
+
+> 💡 **Σημείωση**: Αντικαταστήστε το `<IP_TOU_SERVER>` με την IP του μηχανήματος που τρέχει το κεντρικό WebUI (π.χ. `http://10.0.0.1:8088/api/remote/push`).
+
+### Βήμα 4: Εκκίνηση Agent
+- **Windows**: Τρέξτε το **`run_agent.bat`**.
+- **Linux**: Τρέξτε `./run_agent.sh` (ή ενεργοποιείται αυτόματα ως systemd service αν επιλέχθηκε στο install).
+
+Θα δείτε άμεσα στο τερματικό:
+```text
+[21:20:00] 🟢 Push OK -> Mode: Line | In: 234.0V | Out: 234.0V | Load: 9.0% | Batt: 26.7V (100.0%)
+```
+Και τα δεδομένα θα εμφανίζονται ζωντανά στο WebUI!

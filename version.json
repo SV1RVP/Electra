@@ -1,0 +1,14 @@
+{
+  "app_name": "Electra",
+  "name": "Electra - UPS Status Central Monitor",
+  "subtitle": "UPS Status Central Monitor",
+  "version": "1.2.0",
+  "release_date": "2026-08-29",
+  "author": "Alexandros - Ermis Tsourapas (SV1RVP)",
+  "creator": "Alexandros - Ermis Tsourapas (SV1RVP)",
+  "license": "GNU Affero General Public License v3.0 (AGPL-3.0)",
+  "description": "Real-time multi-UPS monitoring system with local USB drivers, remote WireGuard agents, interactive WebUI dashboards, and smart Viber alerting.",
+  "repository": "https://gitlab.com/SV1RVP/electra-ups-monitor",
+  "download_url": "https://gitlab.com/SV1RVP/electra-ups-monitor/-/archive/master/electra-ups-monitor-master.zip",
+  "commit": ""
+}
