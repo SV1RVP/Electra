@@ -1582,6 +1582,43 @@ class UPSChartManager {
     }
   }
 
+  matchesSelectedUPS(upsName) {
+    if (!this.selectedUPS || this.selectedUPS === 'all') return true;
+    if (upsName === this.selectedUPS) return true;
+    const sel = this.selectedUPS.toLowerCase().replace(/[-_ ]/g, '');
+    const name = (upsName || '').toLowerCase().replace(/[-_ ]/g, '');
+    
+    if (name === sel || name.includes(sel) || sel.includes(name)) return true;
+    
+    if ((sel.includes('local1') || sel.includes('primary') || sel.includes('usb1') || sel.includes('tec') || sel === '1') &&
+        (name.includes('local1') || name.includes('primary') || name.includes('usb1') || name.includes('tec') || name === '1')) {
+      return true;
+    }
+    if ((sel.includes('local2') || sel.includes('secondary') || sel.includes('usb2') || sel.includes('turbo') || sel === '2') &&
+        (name.includes('local2') || name.includes('secondary') || name.includes('usb2') || name.includes('turbo') || name === '2')) {
+      return true;
+    }
+    if ((sel.includes('remote') || sel.includes('network') || sel.includes('ip') || sel.includes('site') || sel === '3') &&
+        (name.includes('remote') || name.includes('network') || name.includes('ip') || name.includes('site') || name === '3')) {
+      return true;
+    }
+    return false;
+  }
+
+  getSlotColor(upsName) {
+    const k = String(upsName || '').toLowerCase();
+    if (k.includes('local-1') || k.includes('primary') || k.includes('tec') || k.includes('usb 1') || k.includes('1')) {
+      return { main: '#00f0ff', fill: 'rgba(0, 240, 255, 0.12)' };
+    }
+    if (k.includes('local-2') || k.includes('secondary') || k.includes('turbo') || k.includes('usb 2') || k.includes('2')) {
+      return { main: '#00e676', fill: 'rgba(0, 230, 118, 0.12)' };
+    }
+    if (k.includes('remote') || k.includes('ip') || k.includes('network') || k.includes('site') || k.includes('3')) {
+      return { main: '#ff007f', fill: 'rgba(255, 0, 127, 0.12)' };
+    }
+    return { main: '#ffab00', fill: 'rgba(255, 171, 0, 0.12)' };
+  }
+
   getSlotInfo(upsName) {
     const k = String(upsName || '').toLowerCase();
     const custom = this.slotLabels[upsName];
@@ -1700,8 +1737,8 @@ class UPSChartManager {
     };
 
     for (const [upsName, records] of Object.entries(historyData || {})) {
-      if (this.selectedUPS !== 'all' && upsName !== this.selectedUPS) continue;
-      const palette = this.colors[upsName] || { main: '#ffab00', fill: 'rgba(255, 171, 0, 0.12)' };
+      if (!this.matchesSelectedUPS(upsName)) continue;
+      const palette = this.getSlotColor(upsName);
       const dev = this.getSlotInfo(upsName);
 
       if (!commonLabels.length && records && records.length) {

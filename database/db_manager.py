@@ -197,11 +197,28 @@ class DBManager:
         start_time = time.time() - period_seconds
 
         with self._get_connection() as conn:
-            if ups_name:
-                names = [ups_name]
+            cur = conn.execute("SELECT DISTINCT ups_name FROM telemetry")
+            all_db_names = [row["ups_name"] for row in cur.fetchall()]
+
+            if ups_name and ups_name.lower() != "all":
+                target_names = []
+                u_clean = ups_name.lower().replace("-", "").replace("_", "").replace(" ", "")
+                for dbn in all_db_names:
+                    dbn_clean = dbn.lower().replace("-", "").replace("_", "").replace(" ", "")
+                    if dbn == ups_name or dbn_clean == u_clean:
+                        target_names.append(dbn)
+                    elif ("local1" in u_clean or "primary" in u_clean or "usb1" in u_clean or "tec" in u_clean) and \
+                         ("local1" in dbn_clean or "primary" in dbn_clean or "usb1" in dbn_clean or "tec" in dbn_clean):
+                        target_names.append(dbn)
+                    elif ("local2" in u_clean or "secondary" in u_clean or "usb2" in u_clean or "turbo" in u_clean) and \
+                         ("local2" in dbn_clean or "secondary" in dbn_clean or "usb2" in dbn_clean or "turbo" in dbn_clean):
+                        target_names.append(dbn)
+                    elif ("remote" in u_clean or "network" in u_clean or "site" in u_clean or "ip" in u_clean) and \
+                         ("remote" in dbn_clean or "network" in dbn_clean or "site" in dbn_clean or "ip" in dbn_clean):
+                        target_names.append(dbn)
+                names = target_names if target_names else [ups_name]
             else:
-                cur = conn.execute("SELECT DISTINCT ups_name FROM telemetry")
-                names = [row["ups_name"] for row in cur.fetchall()]
+                names = all_db_names
 
             data_by_ups: Dict[str, List[Dict[str, Any]]] = {}
 
