@@ -1471,8 +1471,8 @@ async function checkSystemUpdate(manual = false) {
 
 async function performSystemUpdate() {
   const confirmMsg = currentLang === 'el'
-    ? 'Θέλετε να ξεκινήσει η ενημέρωση του UPS Status και η επανεκκίνηση της υπηρεσίας;'
-    : 'Do you want to start the UPS Status update and restart the service?';
+    ? 'Θέλετε να ξεκινήσει η αυτόματη ενημέρωση του Electra και η επανεκκίνηση της υπηρεσίας;'
+    : 'Do you want to start the Electra update and restart the service?';
 
   if (!confirm(confirmMsg)) {
     return;
@@ -1484,17 +1484,30 @@ async function performSystemUpdate() {
     btnNow.disabled = true;
   }
 
-  showToast(currentLang === 'el' ? 'Λήψη ενημέρωσης και εφαρμογή αλλαγών...' : 'Downloading update and applying changes...', 'info');
+  showToast(currentLang === 'el' ? 'Λήψη ενημέρωσης από το GitLab και ασφαλής εφαρμογή αρχείων...' : 'Downloading update from GitLab and safely applying files...', 'info');
 
   try {
     const resp = await fetch('/api/update/perform', { method: 'POST' });
     const res = await resp.json();
 
     if (res.status === 'success' || res.success) {
-      showToast(currentLang === 'el' ? 'Η ενημέρωση εφαρμόστηκε! Επανεκκίνηση σε 4 δευτερόλεπτα...' : 'Update applied! Restarting in 4 seconds...', 'success');
-      setTimeout(() => {
-        window.location.reload();
-      }, 4500);
+      showToast(currentLang === 'el' ? 'Η ενημέρωση ολοκληρώθηκε! Επανεκκίνηση διακομιστή...' : 'Update completed! Restarting server...', 'success');
+      let attempts = 0;
+      const pollTimer = setInterval(async () => {
+        attempts++;
+        try {
+          const chk = await fetch('/api/version', { cache: 'no-store' });
+          if (chk.ok) {
+            clearInterval(pollTimer);
+            window.location.reload();
+          }
+        } catch (e) {
+          if (attempts > 30) {
+            clearInterval(pollTimer);
+            window.location.reload();
+          }
+        }
+      }, 1500);
     } else {
       showToast(`Update error: ${res.message}`, 'error');
       if (btnNow) {
