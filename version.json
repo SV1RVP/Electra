@@ -2,7 +2,7 @@
   "app_name": "Electra",
   "name": "Electra - UPS Status Central Monitor",
   "subtitle": "UPS Status Central Monitor",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "release_date": "2026-08-29",
   "author": "Alexandros - Ermis Tsourapas (SV1RVP)",
   "creator": "Alexandros - Ermis Tsourapas (SV1RVP)",
@@ -11,8 +11,9 @@
   "repository": "https://gitlab.com/SV1RVP/electra-ups-monitor",
   "download_url": "https://gitlab.com/SV1RVP/electra-ups-monitor/-/archive/main/electra-ups-monitor-main.zip",
   "changelog": [
+    "Refined harmonious Dark & Light theme color palettes with enhanced contrast and glassmorphism",
+    "Persistent theme state across reloads with dynamic Chart.js theme re-rendering",
     "Fixed historical telemetry charts filtering for Local-1 and Local-2 UPS",
-    "Enhanced multi-UPS name resolution and fuzzy matching in SQLite history queries",
     "Centered modern charts dashboard layout with rich segmented controls and distinct icons"
   ],
   "commit": ""

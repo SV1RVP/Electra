@@ -375,7 +375,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   try {
+    const savedTheme = localStorage.getItem('electra_theme') || 'dark';
+    if (savedTheme === 'light') {
+      document.body.classList.add('light-theme');
+      const themeBtn = document.getElementById('themeToggleBtn');
+      if (themeBtn) themeBtn.innerHTML = '☀️ Light';
+    }
+  } catch (e) {
+    console.error('setTheme error:', e);
+  }
+
+  try {
     chartManager = new UPSChartManager('telemetryChart');
+    const isLight = document.body.classList.contains('light-theme');
+    if (isLight) chartManager.setTheme(true);
     chartManager.fetchData();
   } catch (e) {
     console.error('chartManager error:', e);
@@ -447,7 +460,13 @@ function initEventListeners() {
     themeBtn.addEventListener('click', () => {
       document.body.classList.toggle('light-theme');
       const isLight = document.body.classList.contains('light-theme');
+      try {
+        localStorage.setItem('electra_theme', isLight ? 'light' : 'dark');
+      } catch (e) {}
       themeBtn.innerHTML = isLight ? '☀️ Light' : '🌙 Dark';
+      if (chartManager) {
+        chartManager.setTheme(isLight);
+      }
     });
   }
 
@@ -1638,6 +1657,35 @@ class UPSChartManager {
       return { label: 'Remote UPS (Network / IP)', icon: '📡', fullTitle: '📡 Remote UPS (IP)' };
     }
     return { label: upsName, icon: '⚡', fullTitle: `⚡ ${upsName}` };
+  }
+
+  setTheme(isLight) {
+    if (!this.chart) return;
+    const gridColor = isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.05)';
+    const textColor = isLight ? '#475569' : '#8892b0';
+    const tooltipBg = isLight ? 'rgba(255, 255, 255, 0.98)' : 'rgba(15, 23, 42, 0.95)';
+    const tooltipTitle = isLight ? '#0284c7' : '#00f0ff';
+    const tooltipBody = isLight ? '#0f172a' : '#e2e8f0';
+    const tooltipBorder = isLight ? 'rgba(2, 132, 199, 0.3)' : 'rgba(0, 240, 255, 0.25)';
+
+    if (this.chart.options.scales?.x) {
+      this.chart.options.scales.x.grid.color = gridColor;
+      this.chart.options.scales.x.ticks.color = textColor;
+    }
+    if (this.chart.options.scales?.y) {
+      this.chart.options.scales.y.grid.color = gridColor;
+      this.chart.options.scales.y.ticks.color = textColor;
+    }
+    if (this.chart.options.plugins?.legend?.labels) {
+      this.chart.options.plugins.legend.labels.color = textColor;
+    }
+    if (this.chart.options.plugins?.tooltip) {
+      this.chart.options.plugins.tooltip.backgroundColor = tooltipBg;
+      this.chart.options.plugins.tooltip.titleColor = tooltipTitle;
+      this.chart.options.plugins.tooltip.bodyColor = tooltipBody;
+      this.chart.options.plugins.tooltip.borderColor = tooltipBorder;
+    }
+    this.chart.update('none');
   }
 
   initChart() {

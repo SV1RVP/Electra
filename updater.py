@@ -64,7 +64,7 @@ def get_local_version() -> Dict[str, Any]:
         "app_name": "Electra",
         "name": "Electra - UPS Status Central Monitor",
         "subtitle": "UPS Status Central Monitor",
-        "version": "1.3.4",
+        "version": "1.3.5",
         "author": "Alexandros - Ermis Tsourapas (SV1RVP)",
         "license": "GNU Affero General Public License v3.0 (AGPL-3.0)"
     }
