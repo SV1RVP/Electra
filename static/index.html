@@ -32,7 +32,7 @@
           <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <h1>ELECTRA</h1>
             <div class="update-status-inline" id="updateContainer">
-              <span class="version-badge" id="versionTag">v1.3.2</span>
+              <span class="version-badge" id="versionTag">v1.3.3</span>
               <span class="update-info-text" id="updateInfo" data-i18n="update_checking">Checking...</span>
               <button type="button" class="btn-update-mini" id="btnCheckUpdate" data-i18n="btn_check_update" title="Check for updates">Έλεγχος</button>
               <button type="button" class="btn-update-now" id="btnUpdateNow" style="display: none;" data-i18n="btn_update_now" title="Download update and restart">⚡ Ενημέρωση Τώρα</button>
@@ -103,42 +103,90 @@
     </section>
 
     <!-- CHARTS & HISTORICAL TELEMETRY -->
-    <section class="panel-card">
-      <div class="panel-header">
-        <div class="panel-title">
-          <span>📈</span>
+    <section class="panel-card charts-panel">
+      <div class="charts-header-centered">
+        <div class="panel-title-centered">
+          <span class="panel-icon">📈</span>
           <h2 data-i18n="btn_charts">Διαδραστικά Γραφήματα & Τηλεμετρία</h2>
+          <p class="panel-subtitle" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+            Ζωντανή παρακολούθηση & ιστορικό τάσεων, φορτίου, μπαταρίας και συχνότητας
+          </p>
         </div>
 
-        <div class="chart-controls">
-          <!-- Metric Tabs -->
-          <div class="segmented-control">
-            <button class="segmented-btn metric-tab-btn active" data-metric="voltages" data-i18n="tab_voltages">Τάσεις (V)</button>
-            <button class="segmented-btn metric-tab-btn" data-metric="load" data-i18n="tab_load">Φορτίο & Watts</button>
-            <button class="segmented-btn metric-tab-btn" data-metric="battery" data-i18n="tab_battery">Μπαταρία (% / V)</button>
-            <button class="segmented-btn metric-tab-btn" data-metric="frequency" data-i18n="tab_freq">Συχνότητα (Hz)</button>
+        <!-- CENTERED CHARTS CONTROLS BAR -->
+        <div class="chart-controls-centered">
+          <!-- 1. UPS Device Selector -->
+          <div class="chart-group-container">
+            <span class="chart-group-label">🖥️ UPS:</span>
+            <div class="segmented-control ups-segmented-control" id="chartUpsSegmented">
+              <button type="button" class="segmented-btn chart-ups-btn active" data-ups="all" title="Όλα τα UPS ταυτόχρονα">
+                <span class="btn-icon">🌐</span>
+                <span class="btn-text" data-i18n="chart_all_ups">Όλα τα UPS</span>
+              </button>
+              <button type="button" class="segmented-btn chart-ups-btn" data-ups="Local-1" title="Primary UPS (USB 1)">
+                <span class="btn-icon">⚡</span>
+                <span class="btn-text" id="chartLabelLocal1">Primary UPS (USB 1)</span>
+              </button>
+              <button type="button" class="segmented-btn chart-ups-btn" data-ups="Local-2" title="Secondary UPS (USB 2)">
+                <span class="btn-icon">🔌</span>
+                <span class="btn-text" id="chartLabelLocal2">Secondary UPS (USB 2)</span>
+              </button>
+              <button type="button" class="segmented-btn chart-ups-btn" data-ups="Remote-1" title="Remote UPS (Network / IP)">
+                <span class="btn-icon">📡</span>
+                <span class="btn-text" id="chartLabelRemote">Remote UPS (IP)</span>
+              </button>
+            </div>
           </div>
 
-          <!-- UPS Filter Dropdown -->
-          <select id="chartUpsSelect" class="form-select" style="width: auto; padding: 6px 12px;">
-            <option value="all" data-i18n="chart_all_ups">Όλα τα UPS (Σύγκριση)</option>
-            <option value="Local-1">Primary UPS (USB 1)</option>
-            <option value="Local-2">Secondary UPS (USB 2)</option>
-            <option value="Remote-1">Remote UPS (Network / IP)</option>
-          </select>
+          <!-- 2. Metric Selector -->
+          <div class="chart-group-container">
+            <span class="chart-group-label">📊 Μετρική:</span>
+            <div class="segmented-control metrics-segmented-control">
+              <button type="button" class="segmented-btn metric-tab-btn active" data-metric="voltages">
+                <span class="btn-icon">⚡</span>
+                <span class="btn-text" data-i18n="tab_voltages">Τάσεις (V)</span>
+              </button>
+              <button type="button" class="segmented-btn metric-tab-btn" data-metric="load">
+                <span class="btn-icon">📊</span>
+                <span class="btn-text" data-i18n="tab_load">Φορτίο & W</span>
+              </button>
+              <button type="button" class="segmented-btn metric-tab-btn" data-metric="battery">
+                <span class="btn-icon">🔋</span>
+                <span class="btn-text" data-i18n="tab_battery">Μπαταρία</span>
+              </button>
+              <button type="button" class="segmented-btn metric-tab-btn" data-metric="frequency">
+                <span class="btn-icon">〰️</span>
+                <span class="btn-text" data-i18n="tab_freq">Συχνότητα (Hz)</span>
+              </button>
+            </div>
+          </div>
 
-          <!-- Period Tabs -->
-          <div class="segmented-control">
-            <button class="segmented-btn period-tab-btn" data-period="300" data-i18n="period_5m">5m Live</button>
-            <button class="segmented-btn period-tab-btn active" data-period="3600" data-i18n="period_1h">1 Ώρα</button>
-            <button class="segmented-btn period-tab-btn" data-period="21600" data-i18n="period_6h">6 Ώρες</button>
-            <button class="segmented-btn period-tab-btn" data-period="86400" data-i18n="period_24h">24 Ώρες</button>
-            <button class="segmented-btn period-tab-btn" data-period="604800" data-i18n="period_7d">7 Ημέρες</button>
+          <!-- 3. Time Period Selector -->
+          <div class="chart-group-container">
+            <span class="chart-group-label">⏱️ Χρόνος:</span>
+            <div class="segmented-control period-segmented-control">
+              <button type="button" class="segmented-btn period-tab-btn" data-period="300">
+                <span class="btn-icon">⏱️</span>
+                <span class="btn-text" data-i18n="period_5m">5m Live</span>
+              </button>
+              <button type="button" class="segmented-btn period-tab-btn active" data-period="3600">
+                <span class="btn-text" data-i18n="period_1h">1 Ώρα</span>
+              </button>
+              <button type="button" class="segmented-btn period-tab-btn" data-period="21600">
+                <span class="btn-text" data-i18n="period_6h">6 Ώρες</span>
+              </button>
+              <button type="button" class="segmented-btn period-tab-btn" data-period="86400">
+                <span class="btn-text" data-i18n="period_24h">24 Ώρες</span>
+              </button>
+              <button type="button" class="segmented-btn period-tab-btn" data-period="604800">
+                <span class="btn-text" data-i18n="period_7d">7 Ημέρες</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="chart-wrapper">
+      <div class="chart-wrapper" style="min-height: 400px; width: 100%;">
         <canvas id="telemetryChart"></canvas>
       </div>
     </section>

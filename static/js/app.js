@@ -523,6 +523,15 @@ function initEventListeners() {
     });
   });
 
+  document.querySelectorAll('.chart-ups-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.chart-ups-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const upsVal = btn.getAttribute('data-ups') || 'all';
+      if (chartManager) chartManager.setUPS(upsVal);
+    });
+  });
+
   const chartUpsSelect = document.getElementById('chartUpsSelect');
   if (chartUpsSelect) {
     chartUpsSelect.addEventListener('change', (e) => {
@@ -536,6 +545,27 @@ function initEventListeners() {
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => {
     window.open('/api/events?limit=500', '_blank');
   });
+}
+
+function updateChartTabs(profMap) {
+  if (!profMap) return;
+  for (const [slot, info] of Object.entries(profMap)) {
+    const disp = info.display_name || slot;
+    if (chartManager) {
+      chartManager.setSlotLabel(slot, disp);
+    }
+    const sLower = slot.toLowerCase();
+    if (sLower.includes('local-1') || sLower.includes('tec') || sLower.includes('primary') || sLower.includes('usb 1')) {
+      const lbl = document.getElementById('chartLabelLocal1');
+      if (lbl) lbl.textContent = disp;
+    } else if (sLower.includes('local-2') || sLower.includes('turbo') || sLower.includes('secondary') || sLower.includes('usb 2')) {
+      const lbl = document.getElementById('chartLabelLocal2');
+      if (lbl) lbl.textContent = disp;
+    } else if (sLower.includes('remote') || sLower.includes('3') || sLower.includes('network') || sLower.includes('ip')) {
+      const lbl = document.getElementById('chartLabelRemote');
+      if (lbl) lbl.textContent = disp;
+    }
+  }
 }
 
 function connectSSE() {
@@ -583,10 +613,11 @@ function updateDashboard(payload) {
   if (!payload || !payload.ups_list) return;
 
   const profMap = {};
-  payload.ups_list.forEach(u => {
-    profMap[u.name] = { display_name: u.display_name || u.name, location: u.location };
+  payload.ups_list.forEach((u, idx) => {
+    const key = u.slot_name || u.name || (idx === 0 ? 'Local-1' : (idx === 1 ? 'Local-2' : 'Remote-1'));
+    profMap[key] = { display_name: u.display_name || u.name, location: u.location };
   });
-  updateChartSelectOptions(profMap);
+  updateChartTabs(profMap);
 
   const summary = payload.summary || {};
   const totalWattsEl = document.getElementById('summaryTotalWatts');
@@ -1530,6 +1561,7 @@ class UPSChartManager {
     this.metric = 'voltages';
     this.period = 3600;
     this.selectedUPS = 'all';
+    this.slotLabels = {};
     this.colors = {
       'Local-1': { main: '#00f0ff', fill: 'rgba(0, 240, 255, 0.12)' },
       'Local-2': { main: '#00e676', fill: 'rgba(0, 230, 118, 0.12)' },
@@ -1542,6 +1574,33 @@ class UPSChartManager {
       'Remote-UPS': { main: '#ff007f', fill: 'rgba(255, 0, 127, 0.12)' },
     };
     this.initChart();
+  }
+
+  setSlotLabel(slot, label) {
+    if (slot && label) {
+      this.slotLabels[slot] = label;
+    }
+  }
+
+  getSlotInfo(upsName) {
+    const k = String(upsName || '').toLowerCase();
+    const custom = this.slotLabels[upsName];
+    if (custom) {
+      let icon = '⚡';
+      if (k.includes('local-2') || k.includes('turbo') || k.includes('secondary') || k.includes('2')) icon = '🔌';
+      else if (k.includes('remote') || k.includes('3') || k.includes('network') || k.includes('ip')) icon = '📡';
+      return { label: custom, icon, fullTitle: `${icon} ${custom}` };
+    }
+    if (k.includes('local-1') || k.includes('tec') || k.includes('primary') || k.includes('usb 1')) {
+      return { label: 'Primary UPS (USB 1)', icon: '⚡', fullTitle: '⚡ Primary UPS (USB 1)' };
+    }
+    if (k.includes('local-2') || k.includes('turbo') || k.includes('secondary') || k.includes('usb 2')) {
+      return { label: 'Secondary UPS (USB 2)', icon: '🔌', fullTitle: '🔌 Secondary UPS (USB 2)' };
+    }
+    if (k.includes('remote') || k.includes('ip') || k.includes('site') || k.includes('3')) {
+      return { label: 'Remote UPS (Network / IP)', icon: '📡', fullTitle: '📡 Remote UPS (IP)' };
+    }
+    return { label: upsName, icon: '⚡', fullTitle: `⚡ ${upsName}` };
   }
 
   initChart() {
@@ -1559,7 +1618,13 @@ class UPSChartManager {
           plugins: {
             legend: {
               position: 'top',
-              labels: { color: '#8892b0', font: { family: 'Outfit, sans-serif', size: 12 } }
+              labels: {
+                color: '#8892b0',
+                font: { family: 'Outfit, sans-serif', size: 12, weight: '600' },
+                padding: 16,
+                usePointStyle: true,
+                pointStyle: 'circle'
+              }
             },
             tooltip: {
               backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -1637,6 +1702,7 @@ class UPSChartManager {
     for (const [upsName, records] of Object.entries(historyData || {})) {
       if (this.selectedUPS !== 'all' && upsName !== this.selectedUPS) continue;
       const palette = this.colors[upsName] || { main: '#ffab00', fill: 'rgba(255, 171, 0, 0.12)' };
+      const dev = this.getSlotInfo(upsName);
 
       if (!commonLabels.length && records && records.length) {
         commonLabels = records.map(r => formatTs(r.timestamp));
@@ -1644,7 +1710,7 @@ class UPSChartManager {
 
       if (this.metric === 'voltages') {
         datasets.push({
-          label: `${upsName} ${currentLang === 'el' ? 'Έξοδος (V)' : 'Output (V)'}`,
+          label: `⚡ [${dev.fullTitle}] ${currentLang === 'el' ? 'Έξοδος (V)' : 'Output (V)'}`,
           data: records.map(r => r.output_v),
           borderColor: palette.main,
           backgroundColor: palette.fill,
@@ -1654,9 +1720,9 @@ class UPSChartManager {
           pointRadius: 0,
         });
         datasets.push({
-          label: `${upsName} ${currentLang === 'el' ? 'Είσοδος ΔΕΗ (V)' : 'Grid In (V)'}`,
+          label: `〰️ [${dev.fullTitle}] ${currentLang === 'el' ? 'Είσοδος ΔΕΗ (V)' : 'Grid In (V)'}`,
           data: records.map(r => r.input_v),
-          borderColor: 'rgba(148, 163, 184, 0.6)',
+          borderColor: 'rgba(148, 163, 184, 0.7)',
           borderDash: [4, 4],
           fill: false,
           tension: 0.3,
@@ -1665,7 +1731,7 @@ class UPSChartManager {
         });
       } else if (this.metric === 'load') {
         datasets.push({
-          label: `${upsName} ${currentLang === 'el' ? 'Φορτίο (%)' : 'Load (%)'}`,
+          label: `📊 [${dev.fullTitle}] ${currentLang === 'el' ? 'Φορτίο (%)' : 'Load (%)'}`,
           data: records.map(r => r.load_pct),
           borderColor: palette.main,
           backgroundColor: palette.fill,
@@ -1675,7 +1741,7 @@ class UPSChartManager {
           pointRadius: 0,
         });
         datasets.push({
-          label: `${upsName} ${currentLang === 'el' ? 'Κατανάλωση (Watts)' : 'Power (Watts)'}`,
+          label: `💡 [${dev.fullTitle}] ${currentLang === 'el' ? 'Κατανάλωση (Watts)' : 'Power (Watts)'}`,
           data: records.map(r => r.load_w),
           borderColor: '#ffab00',
           fill: false,
@@ -1685,7 +1751,7 @@ class UPSChartManager {
         });
       } else if (this.metric === 'battery') {
         datasets.push({
-          label: `${upsName} ${currentLang === 'el' ? 'Μπαταρία (%)' : 'Battery (%)'}`,
+          label: `🔋 [${dev.fullTitle}] ${currentLang === 'el' ? 'Μπαταρία (%)' : 'Battery (%)'}`,
           data: records.map(r => r.battery_pct),
           borderColor: palette.main,
           backgroundColor: palette.fill,
@@ -1695,7 +1761,7 @@ class UPSChartManager {
           pointRadius: 0,
         });
         datasets.push({
-          label: `${upsName} ${currentLang === 'el' ? 'Τάση Μπαταρίας (V)' : 'Battery Volts (V)'}`,
+          label: `⚡ [${dev.fullTitle}] ${currentLang === 'el' ? 'Τάση Μπαταρίας (V)' : 'Battery Volts (V)'}`,
           data: records.map(r => r.battery_v),
           borderColor: '#00e676',
           borderDash: [3, 3],
@@ -1706,7 +1772,7 @@ class UPSChartManager {
         });
       } else if (this.metric === 'frequency') {
         datasets.push({
-          label: `${upsName} ${currentLang === 'el' ? 'Συχνότητα (Hz)' : 'Frequency (Hz)'}`,
+          label: `〰️ [${dev.fullTitle}] ${currentLang === 'el' ? 'Συχνότητα (Hz)' : 'Frequency (Hz)'}`,
           data: records.map(r => r.input_hz),
           borderColor: palette.main,
           backgroundColor: palette.fill,
