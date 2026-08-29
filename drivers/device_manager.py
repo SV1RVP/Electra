@@ -382,6 +382,18 @@ class USBDeviceManager:
                     logger.info(f"Slot '{slot_name}' claimed HID Power Device Class UPS on {dev_id}")
                     return data, dev_id, "HID_PDC"
 
+        # Direct fallback attempt for Cypress Q1 (0665:5161)
+        if "hid:0665:5161" not in claimed_ids:
+            try:
+                direct_tec = TECQ1Reader(name=display_name or slot_name, location=location)
+                d_data = direct_tec.read()
+                if d_data and d_data.connected:
+                    self._bind_slot(slot_name, direct_tec, "hid:0665:5161", "CypressQ1")
+                    logger.info(f"Slot '{slot_name}' claimed Cypress Q1 via direct USB")
+                    return d_data, "hid:0665:5161", "CypressQ1"
+            except Exception:
+                pass
+
         return None, "", ""
 
     def _probe_pyusb(
@@ -392,7 +404,7 @@ class USBDeviceManager:
             tx_probe = TurboXMEC0003Reader(name=display_name or slot_name, location=location)
             candidates = tx_probe.enumerate_candidates()
         except Exception:
-            return None, "", ""
+            candidates = []
 
         for dev in candidates:
             dev_id = f"usb:{dev.bus}:{dev.address}"
@@ -410,6 +422,18 @@ class USBDeviceManager:
                 self._bind_slot(slot_name, reader, dev_id, "MEC0003")
                 logger.info(f"Slot '{slot_name}' claimed MEC0003 UPS on {dev_id}")
                 return data, dev_id, "MEC0003"
+
+        # Direct fallback attempt for Turbo-X / MEC0003 (0001:0000)
+        if "usb:0001:0000" not in claimed_ids:
+            try:
+                tx_direct = TurboXMEC0003Reader(name=display_name or slot_name, location=location)
+                direct_data = tx_direct.read()
+                if direct_data and direct_data.connected:
+                    self._bind_slot(slot_name, tx_direct, "usb:0001:0000", "MEC0003")
+                    logger.info(f"Slot '{slot_name}' claimed MEC0003 via direct USB")
+                    return direct_data, "usb:0001:0000", "MEC0003"
+            except Exception:
+                pass
 
         return None, "", ""
 

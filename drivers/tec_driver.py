@@ -45,14 +45,23 @@ class TECQ1Reader:
 
         target = specific_path or self.target_path
         if target:
-            d = self.hid.device()
-            p = target if isinstance(target, bytes) else target.encode("utf-8")
-            d.open_path(p)
-            return d, {"path": target}
+            try:
+                d = self.hid.device()
+                p = target if isinstance(target, bytes) else target.encode("utf-8")
+                d.open_path(p)
+                return d, {"path": target}
+            except Exception as e:
+                logger.debug(f"open_path failed for {target}: {e}, trying standard open({self.VID:04X}:{self.PID:04X})...")
 
         devices = self.enumerate()
         if not devices:
-            raise RuntimeError(f"TEC USB {self.VID:04X}:{self.PID:04X} not found.")
+            # Direct attempt to open default VID/PID
+            try:
+                d = self.hid.device()
+                d.open(self.VID, self.PID)
+                return d, {"path": "default"}
+            except Exception as e:
+                raise RuntimeError(f"TEC USB {self.VID:04X}:{self.PID:04X} not found: {e}")
 
         last_error = None
         for info in devices:

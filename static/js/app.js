@@ -172,6 +172,16 @@ const I18N = {
     toast_selftest_failed: "🚨❌ Αποτυχία Self-Test στο {name}! Ελέγξτε τη μπαταρία.",
     toast_buzzer_on: "🔔 Ο ηχητικός συναγερμός (Buzzer) ενεργοποιήθηκε στο {name}.",
     toast_buzzer_off: "🔕 Ο ηχητικός συναγερμός (Buzzer) σιγάστηκε στο {name}.",
+
+    btn_buzzer_on: "🔔 Συναγερμός ON",
+    btn_buzzer_off: "🔕 Συναγερμός OFF",
+    btn_selftest: "🧪 Self-Test",
+    btn_selftest_running: "⏳ Εκτέλεση...",
+    lbl_last_selftest: "Τελευταίο Self-Test",
+    selftest_none: "Δεν έχει εκτελεστεί",
+    selftest_running: "Σε εξέλιξη...",
+    selftest_passed: "Επιτυχία",
+    selftest_failed: "Αποτυχία",
   },
   en: {
     app_title: "UPS STATUS MONITOR",
@@ -339,6 +349,16 @@ const I18N = {
     toast_selftest_failed: "🚨❌ Self-Test on {name} failed! Check battery.",
     toast_buzzer_on: "🔔 Alarm buzzer enabled on {name}.",
     toast_buzzer_off: "🔕 Alarm buzzer muted on {name}.",
+
+    btn_buzzer_on: "🔔 Buzzer ON",
+    btn_buzzer_off: "🔕 Buzzer OFF",
+    btn_selftest: "🧪 Self-Test",
+    btn_selftest_running: "⏳ Running...",
+    lbl_last_selftest: "Last Self-Test",
+    selftest_none: "None recorded",
+    selftest_running: "In Progress...",
+    selftest_passed: "Passed",
+    selftest_failed: "Failed",
   }
 };
 
@@ -607,8 +627,9 @@ function updateDashboard(payload) {
   if (!payload || !payload.ups_list) return;
 
   const profMap = {};
-  payload.ups_list.forEach(u => {
-    profMap[u.name] = { display_name: u.display_name || u.name, location: u.location };
+  payload.ups_list.forEach((u, idx) => {
+    const key = u.slot_name || u.name || (idx === 0 ? 'Local-1' : (idx === 1 ? 'Local-2' : 'Remote-1'));
+    profMap[key] = { display_name: u.display_name || u.name, location: u.location };
   });
   updateChartTabs(profMap);
 
@@ -619,7 +640,7 @@ function updateDashboard(payload) {
 
   if (totalWattsEl) totalWattsEl.textContent = `${summary.total_watts || 0} W`;
   if (avgLoadEl) avgLoadEl.textContent = `${summary.avg_load_pct || 0}%`;
-  if (activeUnitsEl) activeUnitsEl.textContent = `${summary.online_ups || 0} / ${summary.total_ups || 3}`;
+  if (activeUnitsEl) activeUnitsEl.textContent = `${summary.online_ups || 0} / ${summary.total_ups || payload.ups_list.length || 3}`;
 
   const gridStatusEl = document.getElementById('summaryGridStatus');
   const gridCardEl = document.getElementById('summaryGridCard');
@@ -640,17 +661,21 @@ function updateDashboard(payload) {
   const container = document.getElementById('upsGridContainer');
   if (container) {
     payload.ups_list.forEach((ups, idx) => {
-      if (!ups.slot_name) {
-        ups.slot_name = idx === 0 ? 'Local-1' : idx === 1 ? 'Local-2' : 'Remote-1';
+      try {
+        if (!ups.slot_name) {
+          ups.slot_name = idx === 0 ? 'Local-1' : (idx === 1 ? 'Local-2' : 'Remote-1');
+        }
+        const safeId = (ups.slot_name || ups.name || `ups-${idx}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+        let card = document.getElementById(`ups-card-${safeId}`);
+        if (!card) {
+          card = createUPSCardElement(ups, safeId);
+          container.appendChild(card);
+        }
+        updateUPSCard(card, ups);
+        checkAudioAlerts(ups);
+      } catch (err) {
+        console.error('Error rendering UPS card:', err, ups);
       }
-      const safeId = (ups.slot_name || ups.name || `ups-${idx}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-      let card = document.getElementById(`ups-card-${safeId}`);
-      if (!card) {
-        card = createUPSCardElement(ups, safeId);
-        container.appendChild(card);
-      }
-      updateUPSCard(card, ups);
-      checkAudioAlerts(ups);
     });
   }
 }

@@ -20,9 +20,11 @@ class UPSChartManager {
   }
 
   setSlotLabel(slot, label) {
-    if (slot && label) {
+    if (slot && label && this.slotLabels[slot] !== label) {
       this.slotLabels[slot] = label;
-      this.render();
+      if (this.chart && this.cachedData && Object.keys(this.cachedData).length > 0) {
+        this.render();
+      }
     }
   }
 
