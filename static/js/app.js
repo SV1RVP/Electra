@@ -1869,3 +1869,164 @@ async function handleRunAllSelfTest() {
   }, 1000);
 }
 
+// ----------------------------------------------------
+// Electra - Auto-Update & Service Restart Manager
+// ----------------------------------------------------
+function initUpdateSystem() {
+  const btnCheck = document.getElementById('btnCheckUpdate');
+  const btnUpdate = document.getElementById('btnUpdateNow');
+
+  if (btnCheck) {
+    btnCheck.addEventListener('click', () => checkAppUpdate(false));
+  }
+  if (btnUpdate) {
+    btnUpdate.addEventListener('click', applyAppUpdateNow);
+  }
+
+  // Initial check after 3 seconds
+  setTimeout(() => checkAppUpdate(true), 3000);
+}
+
+async function checkAppUpdate(silent = false) {
+  const updateInfo = document.getElementById('updateInfo');
+  const btnUpdate = document.getElementById('btnUpdateNow');
+  const versionTag = document.getElementById('versionTag');
+
+  if (!silent && updateInfo) {
+    updateInfo.textContent = currentLang === 'el' ? 'Έλεγχος...' : 'Checking...';
+  }
+
+  try {
+    const resp = await fetch('/api/update/status');
+    const data = await resp.json();
+
+    if (versionTag && data.local_version) {
+      versionTag.textContent = `v${data.local_version}`;
+    }
+
+    if (data.update_available) {
+      if (updateInfo) {
+        updateInfo.textContent = currentLang === 'el'
+          ? `⚡ Νέα έκδοση v${data.remote_version}!`
+          : `⚡ New version v${data.remote_version}!`;
+        updateInfo.style.color = 'var(--accent-amber)';
+      }
+      if (btnUpdate) {
+        btnUpdate.style.display = 'inline-flex';
+      }
+      if (!silent) {
+        showToast(
+          currentLang === 'el'
+            ? `Διαθέσιμη νέα έκδοση v${data.remote_version}!`
+            : `New version v${data.remote_version} available!`,
+          'info'
+        );
+      }
+    } else {
+      if (updateInfo) {
+        updateInfo.textContent = currentLang === 'el' ? '✅ Ενημερωμένο' : '✅ Up to date';
+        updateInfo.style.color = 'var(--accent-emerald)';
+      }
+      if (btnUpdate) {
+        btnUpdate.style.display = 'none';
+      }
+      if (!silent) {
+        showToast(
+          currentLang === 'el'
+            ? 'Το Electra είναι πλήρως ενημερωμένο.'
+            : 'Electra is up to date.',
+          'success'
+        );
+      }
+    }
+  } catch (err) {
+    if (!silent && updateInfo) {
+      updateInfo.textContent = currentLang === 'el' ? 'Σφάλμα ελέγχου' : 'Check failed';
+      showToast(`Update check error: ${err.message}`, 'error');
+    }
+  }
+}
+
+async function applyAppUpdateNow() {
+  const confirmMsg = currentLang === 'el'
+    ? 'Θέλετε να προχωρήσετε σε αυτόματη λήψη των νέων αρχείων, αναβάθμιση και επανεκκίνηση του Electra;\n\n(Οι ρυθμίσεις και το ιστορικό σας διατηρούνται 100%)'
+    : 'Do you want to download updates, apply files and restart Electra?\n\n(Your settings and database history are 100% preserved)';
+
+  if (!confirm(confirmMsg)) return;
+
+  const btnUpdate = document.getElementById('btnUpdateNow');
+  const updateInfo = document.getElementById('updateInfo');
+
+  if (btnUpdate) btnUpdate.disabled = true;
+  if (updateInfo) {
+    updateInfo.textContent = currentLang === 'el' ? '⏳ Λήψη & Ενημέρωση...' : '⏳ Updating...';
+  }
+  showToast(
+    currentLang === 'el'
+      ? 'Λήψη ενημέρωσης και επανεκκίνηση υπηρεσίας...'
+      : 'Downloading update and restarting service...',
+    'info'
+  );
+
+  try {
+    const res = await fetch('/api/update/perform', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.status === 'success') {
+      showToast(
+        currentLang === 'el'
+          ? 'Η ενημέρωση εφαρμόζεται! Επανεκκίνηση...'
+          : 'Update applied! Restarting...',
+        'success'
+      );
+      setTimeout(pollForElectraRestart, 3000);
+    } else {
+      showToast(`Update failed: ${data.message}`, 'error');
+      if (btnUpdate) btnUpdate.disabled = false;
+    }
+  } catch (e) {
+    // If connection drops because server exited, poll for restart
+    setTimeout(pollForElectraRestart, 3000);
+  }
+}
+
+function pollForElectraRestart() {
+  let attempts = 0;
+  const maxAttempts = 30;
+
+  const interval = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await fetch('/api/version', { cache: 'no-cache' });
+      if (res.ok) {
+        clearInterval(interval);
+        showToast(
+          currentLang === 'el'
+            ? 'Το Electra είναι ξανά online! Ανανέωση...'
+            : 'Electra is back online! Refreshing...',
+          'success'
+        );
+        setTimeout(() => window.location.reload(), 1000);
+      }
+    } catch (err) {
+      // Still restarting
+    }
+
+    if (attempts >= maxAttempts) {
+      clearInterval(interval);
+      showToast(
+        currentLang === 'el'
+          ? 'Η ενημέρωση ολοκληρώθηκε. Παρακαλώ ανανεώστε τη σελίδα.'
+          : 'Update finished. Please refresh the page.',
+        'info'
+      );
+    }
+  }, 2000);
+}
+
+// Start update system when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  initUpdateSystem();
+});
+
+

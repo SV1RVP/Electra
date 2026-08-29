@@ -849,12 +849,19 @@ def get_self_test_history_endpoint(
     return {"status": "ok", "count": len(history), "history": history}
 
 
+@app.get("/api/version")
+def get_version_info():
+    return updater.get_local_version()
+
+
 @app.get("/api/update/status")
+@app.get("/api/check-update")
 def get_update_status():
     return updater.check_for_updates()
 
 
 @app.post("/api/update/perform")
+@app.post("/api/apply-update")
 def perform_update():
     success, msg = updater.run_update()
     if not success:
