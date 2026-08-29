@@ -6,6 +6,7 @@ License: GNU AGPLv3
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 import os
@@ -14,8 +15,6 @@ import shutil
 import subprocess
 import threading
 import time
-import urllib.request
-import urllib.error
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -72,7 +71,7 @@ def get_local_version() -> Dict[str, Any]:
 
 
 def parse_semver(version_str: str) -> Tuple[int, ...]:
-    """Parses semantic version string like '1.2.0' or 'v1.2.0' into tuple of integers."""
+    """Parses semantic version string like '1.3.0' or 'v1.3.0' into tuple of integers."""
     try:
         clean = str(version_str).strip().lstrip("v")
         return tuple(int(x) for x in clean.split("."))
@@ -85,7 +84,7 @@ def get_remote_version() -> Optional[Dict[str, Any]]:
     urls = [GITLAB_RAW_MAIN_URL, GITLAB_RAW_MASTER_URL, GITHUB_VERSION_URL]
     for url in urls:
         try:
-            resp = requests.get(url, timeout=8, headers={"User-Agent": "Electra-Updater/1.2"})
+            resp = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Electra-Updater/1.3"})
             if resp.status_code == 200:
                 data = resp.json()
                 if "version" in data:
@@ -106,14 +105,14 @@ def check_for_updates() -> Dict[str, Any]:
         return {
             "status": "warning",
             "update_available": False,
-            "local_version": local.get("version", "1.2.0"),
+            "local_version": local.get("version", "1.3.0"),
             "remote_version": None,
             "is_git": is_git,
             "message": "Δεν ήταν δυνατή η σύνδεση με το GitLab για έλεγχο νέας έκδοσης.",
         }
 
-    local_ver_str = local.get("version", "1.2.0")
-    remote_ver_str = remote.get("version", "1.2.0")
+    local_ver_str = local.get("version", "1.3.0")
+    remote_ver_str = remote.get("version", "1.3.0")
 
     local_semver = parse_semver(local_ver_str)
     remote_semver = parse_semver(remote_ver_str)
@@ -134,14 +133,28 @@ def check_for_updates() -> Dict[str, Any]:
     }
 
 
-def download_file(url: str, dest_path: Path) -> bool:
-    """Downloads a remote file with User-Agent header."""
-    req = urllib.request.Request(url, headers={"User-Agent": "Electra-Updater/1.2"})
-    with urllib.request.urlopen(req, timeout=30) as response:
-        if response.status == 200:
-            with open(dest_path, "wb") as out_file:
-                shutil.copyfileobj(response, out_file)
-            return True
+def download_valid_zip(dest_path: Path) -> bool:
+    """Downloads update zip from remote mirrors and validates its integrity."""
+    urls = [GITLAB_ZIP_MAIN_URL, GITLAB_ZIP_MASTER_URL, GITHUB_ZIP_URL]
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Electra-Updater/1.3"}
+
+    for url in urls:
+        try:
+            logger.info(f"Downloading update package from {url} ...")
+            resp = requests.get(url, stream=True, timeout=30, headers=headers)
+            if resp.status_code == 200:
+                content = resp.content
+                # Verify that it is a valid, uncorrupted zip archive
+                with zipfile.ZipFile(io.BytesIO(content)) as z:
+                    if len(z.namelist()) > 0:
+                        with open(dest_path, "wb") as f:
+                            f.write(content)
+                        logger.info(f"Successfully downloaded and verified {len(content)} bytes ({len(z.namelist())} files).")
+                        return True
+        except Exception as e:
+            logger.warning(f"Failed to download/validate archive from {url}: {e}")
+            continue
+
     return False
 
 
@@ -161,32 +174,100 @@ def _safe_extract_and_copy(zip_path: Path):
     subdirs = [temp_dir / d for d in os.listdir(temp_dir) if (temp_dir / d).is_dir()]
     src_dir = subdirs[0] if subdirs else temp_dir
 
-    for item in os.listdir(src_dir):
-        # Never overwrite existing user configuration or databases!
-        if item in PRESERVED_USER_FILES:
-            if (BASE_DIR / item).exists():
-                logger.info(f"[Updater] Preserving existing user file: {item}")
-                continue
+    for root, dirs, files in os.walk(src_dir):
+        rel_root = Path(root).relative_to(src_dir)
+        dest_root = BASE_DIR / rel_root
+        dest_root.mkdir(parents=True, exist_ok=True)
 
-        s = src_dir / item
-        d = BASE_DIR / item
-        if s.is_dir():
-            shutil.copytree(s, d, dirs_exist_ok=True)
-        else:
-            shutil.copy2(s, d)
+        for file in files:
+            if file in PRESERVED_USER_FILES and (dest_root / file).exists():
+                logger.info(f"[Updater] Preserving user file: {file}")
+                continue
+            src_file = Path(root) / file
+            dest_file = dest_root / file
+            shutil.copy2(src_file, dest_file)
 
     # Cleanup temp archives
     if temp_dir.exists():
         shutil.rmtree(temp_dir, ignore_errors=True)
     if zip_path.exists():
-        os.remove(zip_path)
+        try:
+            os.remove(zip_path)
+        except Exception:
+            pass
 
 
-def create_windows_update_helper(zip_path: Path) -> Path:
-    """Generates the Windows helper script to safely apply update and restart Electra."""
+def _create_python_update_runner() -> Path:
+    """Creates a standalone Python updater script for bulletproof execution on Windows."""
+    runner_path = BASE_DIR / "update_runner.py"
+    code = """import os, sys, shutil, zipfile
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+ZIP_PATH = BASE_DIR / "update.zip"
+TEMP_DIR = BASE_DIR / "_temp_update"
+
+PRESERVE = {
+    "config.json", "profiles.json", "learning.json",
+    "telemetry.db", "telemetry.db-shm", "telemetry.db-wal",
+    "ups_history.db", "ups_history.db-shm", "ups_history.db-wal",
+    "app.log", "cert.pem", "key.pem", ".venv"
+}
+
+try:
+    if not ZIP_PATH.exists():
+        print("[ERROR] update.zip does not exist.")
+        sys.exit(1)
+
+    print("[1/3] Extracting update files...")
+    if TEMP_DIR.exists():
+        shutil.rmtree(TEMP_DIR, ignore_errors=True)
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+    with zipfile.ZipFile(ZIP_PATH, "r") as z:
+        z.extractall(TEMP_DIR)
+
+    subdirs = [TEMP_DIR / d for d in os.listdir(TEMP_DIR) if (TEMP_DIR / d).is_dir()]
+    src_dir = subdirs[0] if subdirs else TEMP_DIR
+
+    print(f"[2/3] Applying updated files from {src_dir.name}...")
+    for root, dirs, files in os.walk(src_dir):
+        rel_root = Path(root).relative_to(src_dir)
+        dest_root = BASE_DIR / rel_root
+        dest_root.mkdir(parents=True, exist_ok=True)
+
+        for file in files:
+            if file in PRESERVE and (dest_root / file).exists():
+                print(f"  [PRESERVED] {file}")
+                continue
+            src_file = Path(root) / file
+            dest_file = dest_root / file
+            shutil.copy2(src_file, dest_file)
+
+    print("[3/3] Cleaning temporary files...")
+    if TEMP_DIR.exists():
+        shutil.rmtree(TEMP_DIR, ignore_errors=True)
+    if ZIP_PATH.exists():
+        try:
+            os.remove(ZIP_PATH)
+        except Exception:
+            pass
+
+    print("[SUCCESS] Electra files updated successfully!")
+except Exception as e:
+    print(f"[ERROR] Update process encountered an error: {e}")
+"""
+    with open(runner_path, "w", encoding="utf-8") as f:
+        f.write(code)
+    return runner_path
+
+
+def create_windows_update_helper() -> Path:
+    """Generates the clean Windows helper batch script calling update_runner.py."""
     helper_path = BASE_DIR / "update_helper.bat"
+    _create_python_update_runner()
+
     script = f"""@echo off
-setlocal enabledelayedexpansion
 title Electra - Windows Auto-Updater
 cd /d "{BASE_DIR}"
 
@@ -194,59 +275,25 @@ echo ============================================================
 echo         ELECTRA - UPDATING APPLICATION FILES
 echo ============================================================
 echo Waiting for active server processes to close...
-timeout /t 3 /nobreak > nul
+timeout /t 2 /nobreak > nul
 
-echo [1/3] Extracting update archive...
-if exist "_temp_update" rmdir /s /q "_temp_update"
-powershell -Command "Expand-Archive -Path '{zip_path.name}' -DestinationPath '_temp_update' -Force"
-
-set "EXT_DIR="
-for /d %%d in ("_temp_update\\*") do (
-    set "EXT_DIR=%%d"
-)
-
-if defined EXT_DIR (
-    echo [2/3] Applying updated files...
-    :: Copy files while preserving existing config/db files
-    powershell -NoProfile -Command "
-    $src = '!EXT_DIR!';
-    $dst = '{BASE_DIR}';
-    $preserve = @('config.json', 'profiles.json', 'learning.json', 'telemetry.db', 'telemetry.db-shm', 'telemetry.db-wal', 'ups_history.db', 'ups_history.db-shm', 'ups_history.db-wal', 'app.log', '.venv');
-    Get-ChildItem -Path $src -Recurse | ForEach-Object {{
-        $rel = $_.FullName.Substring($src.Length + 1);
-        $target = Join-Path $dst $rel;
-        if (-not (Test-Path $target) -or ($preserve -notcontains $_.Name)) {{
-            if ($_.PSIsContainer) {{
-                if (-not (Test-Path $target)) {{ New-Item -ItemType Directory -Path $target -Force | Out-Null }}
-            }} else {{
-                Copy-Item -Path $_.FullName -Destination $target -Force
-            }}
-        }}
-    }}
-    "
-) else (
-    echo [ERROR] Could not find extracted folder.
-    pause
-    exit /b 1
-)
-
-echo [3/3] Updating Python packages...
 if exist ".venv\\Scripts\\python.exe" (
-    .venv\\Scripts\\python.exe -m pip install -r requirements.txt --quiet --no-warn-script-location
+    set "PYTHON_EXE=.venv\\Scripts\\python.exe"
+) else (
+    set "PYTHON_EXE=python"
 )
 
-echo Cleaning up temporary update archives...
-del /f /q "{zip_path.name}" 2>nul
-rmdir /s /q "_temp_update" 2>nul
+echo Executing update engine...
+"%PYTHON_EXE%" update_runner.py
 
 echo.
 echo ============================================================
 echo   [SUCCESS] Electra update completed!
-echo   Restarting server...
+echo   Restarting Electra Web Server...
 echo ============================================================
 start "" "start_server.bat"
 
-(goto) 2>nul & del "%~f0" & exit
+(goto) 2>nul & del "update_runner.py" 2>nul & del "%~f0" 2>nul & exit
 """
     with open(helper_path, "w", encoding="utf-8") as f:
         f.write(script)
@@ -263,25 +310,14 @@ def run_update() -> Tuple[bool, str]:
 
     logger.info("=== Starting Electra Auto-Update ===")
 
-    # 1. Download ZIP
-    downloaded = False
-    urls_to_try = [GITLAB_ZIP_MAIN_URL, GITLAB_ZIP_MASTER_URL, GITHUB_ZIP_URL]
-    for url in urls_to_try:
-        try:
-            logger.info(f"Downloading update from {url} ...")
-            if download_file(url, zip_path):
-                downloaded = True
-                break
-        except Exception as e:
-            logger.debug(f"Download failed from {url}: {e}")
-            continue
-
+    # 1. Download and validate ZIP
+    downloaded = download_valid_zip(zip_path)
     if not downloaded or not zip_path.exists():
-        return False, "Αποτυχία λήψης του πακέτου ενημέρωσης από το GitLab."
+        return False, "Αποτυχία λήψης έγκυρου πακέτου ενημέρωσης από το GitLab."
 
     # 2. Apply and Restart
     if system == "Windows":
-        create_windows_update_helper(zip_path)
+        create_windows_update_helper()
 
         def delayed_windows_restart():
             time.sleep(1)
