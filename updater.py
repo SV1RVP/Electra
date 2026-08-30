@@ -25,14 +25,12 @@ logger = logging.getLogger("Electra.Updater")
 BASE_DIR = Path(__file__).resolve().parent
 VERSION_FILE = BASE_DIR / "version.json"
 
-# Remote repository release metadata endpoints (GitLab / GitHub fallback)
-GITLAB_RAW_MAIN_URL = "https://gitlab.com/SV1RVP/electra-ups-monitor/-/raw/main/version.json"
-GITLAB_RAW_MASTER_URL = "https://gitlab.com/SV1RVP/electra-ups-monitor/-/raw/master/version.json"
-GITLAB_ZIP_MAIN_URL = "https://gitlab.com/SV1RVP/electra-ups-monitor/-/archive/main/electra-ups-monitor-main.zip"
-GITLAB_ZIP_MASTER_URL = "https://gitlab.com/SV1RVP/electra-ups-monitor/-/archive/master/electra-ups-monitor-master.zip"
+# Remote repository release metadata endpoints (GitHub primary / GitLab fallback)
+GITHUB_VERSION_URL = "https://raw.githubusercontent.com/SV1RVP/Electra/main/version.json"
+GITHUB_ZIP_URL = "https://github.com/SV1RVP/Electra/archive/refs/heads/main.zip"
 
-GITHUB_VERSION_URL = "https://raw.githubusercontent.com/SV1RVP/electra-ups-monitor/main/version.json"
-GITHUB_ZIP_URL = "https://github.com/SV1RVP/electra-ups-monitor/archive/refs/heads/main.zip"
+GITLAB_RAW_MAIN_URL = "https://gitlab.com/SV1RVP/electra-ups-monitor/-/raw/main/version.json"
+GITLAB_ZIP_MAIN_URL = "https://gitlab.com/SV1RVP/electra-ups-monitor/-/archive/main/electra-ups-monitor-main.zip"
 
 # Protected user files that are NEVER overwritten or deleted during update
 PRESERVED_USER_FILES = {
@@ -81,7 +79,7 @@ def parse_semver(version_str: str) -> Tuple[int, ...]:
 
 def get_remote_version() -> Optional[Dict[str, Any]]:
     """Fetches the latest version metadata from remote repository."""
-    urls = [GITLAB_RAW_MAIN_URL, GITLAB_RAW_MASTER_URL, GITHUB_VERSION_URL]
+    urls = [GITHUB_VERSION_URL, GITLAB_RAW_MAIN_URL]
     for url in urls:
         try:
             resp = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Electra-Updater/1.3"})
@@ -108,7 +106,7 @@ def check_for_updates() -> Dict[str, Any]:
             "local_version": local.get("version", "1.3.2"),
             "remote_version": None,
             "is_git": is_git,
-            "message": "Δεν ήταν δυνατή η σύνδεση με το GitLab για έλεγχο νέας έκδοσης.",
+            "message": "Δεν ήταν δυνατή η σύνδεση με το GitHub για έλεγχο νέας έκδοσης.",
         }
 
     local_ver_str = local.get("version", "1.3.2")
@@ -126,8 +124,8 @@ def check_for_updates() -> Dict[str, Any]:
         "remote_version": remote_ver_str,
         "release_date": remote.get("release_date", ""),
         "changelog": remote.get("changelog", []),
-        "download_url": remote.get("download_url", GITLAB_ZIP_MAIN_URL),
-        "repository": remote.get("repository", "https://gitlab.com/SV1RVP/electra-ups-monitor"),
+        "download_url": remote.get("download_url", GITHUB_ZIP_URL),
+        "repository": remote.get("repository", "https://github.com/SV1RVP/Electra"),
         "is_git": is_git,
         "message": f"Νέα έκδοση διαθέσιμη: v{remote_ver_str}" if update_available else "Χρησιμοποιείτε την πιο πρόσφατη έκδοση.",
     }
@@ -135,7 +133,7 @@ def check_for_updates() -> Dict[str, Any]:
 
 def download_valid_zip(dest_path: Path) -> bool:
     """Downloads update zip from remote mirrors and validates its integrity."""
-    urls = [GITLAB_ZIP_MAIN_URL, GITLAB_ZIP_MASTER_URL, GITHUB_ZIP_URL]
+    urls = [GITHUB_ZIP_URL, GITLAB_ZIP_MAIN_URL]
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Electra-Updater/1.3"}
 
     for url in urls:
@@ -302,7 +300,7 @@ start "" "start_server.bat"
 
 def run_update() -> Tuple[bool, str]:
     """
-    Downloads latest release from GitLab, safely replaces files without touching user configs/databases,
+    Downloads latest release from GitHub, safely replaces files without touching user configs/databases,
     and automatically restarts Electra server / systemd service.
     """
     system = platform.system()
@@ -313,7 +311,7 @@ def run_update() -> Tuple[bool, str]:
     # 1. Download and validate ZIP
     downloaded = download_valid_zip(zip_path)
     if not downloaded or not zip_path.exists():
-        return False, "Αποτυχία λήψης έγκυρου πακέτου ενημέρωσης από το GitLab."
+        return False, "Αποτυχία λήψης έγκυρου πακέτου ενημέρωσης από το GitHub."
 
     # 2. Apply and Restart
     if system == "Windows":

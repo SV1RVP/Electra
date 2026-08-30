@@ -8,8 +8,8 @@
   "creator": "Alexandros - Ermis Tsourapas (SV1RVP)",
   "license": "GNU Affero General Public License v3.0 (AGPL-3.0)",
   "description": "Real-time multi-UPS monitoring system with local USB drivers, remote WireGuard agents, interactive WebUI dashboards, and smart Viber alerting.",
-  "repository": "https://gitlab.com/SV1RVP/electra-ups-monitor",
-  "download_url": "https://gitlab.com/SV1RVP/electra-ups-monitor/-/archive/main/electra-ups-monitor-main.zip",
+  "repository": "https://github.com/SV1RVP/Electra",
+  "download_url": "https://github.com/SV1RVP/Electra/archive/refs/heads/main.zip",
   "changelog": [
     "Refined harmonious Dark & Light theme color palettes with enhanced contrast and glassmorphism",
     "Persistent theme state across reloads with dynamic Chart.js theme re-rendering",

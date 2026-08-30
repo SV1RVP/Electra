@@ -90,15 +90,15 @@
 
 1. **Clone the repository**:
    ```bash
-   git clone https://gitlab.com/SV1RVP/ups-status.git
-   cd ups-status
+   git clone https://github.com/SV1RVP/Electra.git
+   cd Electra
    ```
 2. **Run the universal installer**:
    ```bash
    chmod +x install-linux.sh
    ./install-linux.sh
    ```
-   *The installer automatically installs system packages (`python3-venv`, `libusb`, `libhidapi`), configures USB udev permissions, sets up Python `.venv`, and creates and starts the `systemd` service (`ups-status.service`).*
+   *The installer automatically installs system packages (`python3-venv`, `libusb`, `libhidapi`), configures USB udev permissions, sets up Python `.venv`, and creates and starts the `systemd` service (`electra.service`).*
 
 3. **Access the WebUI**:
    - Open your browser at `http://localhost:8088` (or `http://<YOUR_IP>:8088`).
@@ -109,8 +109,8 @@
 
 1. **Download or Clone the repository**:
    ```cmd
-   git clone https://gitlab.com/SV1RVP/ups-status.git
-   cd "ups-status"
+   git clone https://github.com/SV1RVP/Electra.git
+   cd "Electra"
    ```
 2. **Run the installer**:
    - Double-click `install-windows.bat` (or run `install.bat`).
@@ -285,15 +285,15 @@ chmod +x uninstall-linux.sh
 
 1. **Κλωνοποίηση του αποθετηρίου**:
    ```bash
-   git clone https://gitlab.com/SV1RVP/ups-status.git
-   cd ups-status
+   git clone https://github.com/SV1RVP/Electra.git
+   cd Electra
    ```
 2. **Εκτέλεση του αυτόματου εγκαταστάτη**:
    ```bash
    chmod +x install-linux.sh
    ./install-linux.sh
    ```
-   *Το script εγκαθιστά αυτόματα τα απαραίτητα πακέτα (`python3-venv`, `libusb`, `libhidapi`), ρυθμίζει τα δικαιώματα udev για USB, δημιουργεί το `.venv` και εκκινεί την υπηρεσία systemd (`ups-status.service`).*
+   *Το script εγκαθιστά αυτόματα τα απαραίτητα πακέτα (`python3-venv`, `libusb`, `libhidapi`), ρυθμίζει τα δικαιώματα udev για USB, δημιουργεί το `.venv` και εκκινεί την υπηρεσία systemd (`electra.service`).*
 
 3. **Πρόσβαση στο WebUI**:
    - Ανοίξτε τον browser στη διεύθυνση `http://localhost:8088` (ή `http://<IP_ΣΑΣ>:8088`).
@@ -304,8 +304,8 @@ chmod +x uninstall-linux.sh
 
 1. **Λήψη ή Κλωνοποίηση του αποθετηρίου**:
    ```cmd
-   git clone https://gitlab.com/SV1RVP/ups-status.git
-   cd "ups-status"
+   git clone https://github.com/SV1RVP/Electra.git
+   cd "Electra"
    ```
 2. **Εκτέλεση του installer**:
    - Κάντε διπλό κλικ στο `install-windows.bat` (ή `install.bat`).

@@ -1534,7 +1534,7 @@ async function performSystemUpdate() {
     btnNow.disabled = true;
   }
 
-  showToast(currentLang === 'el' ? 'Λήψη ενημέρωσης από το GitLab και ασφαλής εφαρμογή αρχείων...' : 'Downloading update from GitLab and safely applying files...', 'info');
+  showToast(currentLang === 'el' ? 'Λήψη ενημέρωσης από το GitHub και ασφαλής εφαρμογή αρχείων...' : 'Downloading update from GitHub and safely applying files...', 'info');
 
   try {
     const resp = await fetch('/api/update/perform', { method: 'POST' });
