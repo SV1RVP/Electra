@@ -25,12 +25,9 @@ logger = logging.getLogger("Electra.Updater")
 BASE_DIR = Path(__file__).resolve().parent
 VERSION_FILE = BASE_DIR / "version.json"
 
-# Remote repository release metadata endpoints (GitHub primary / GitLab fallback)
+# Remote repository release metadata endpoints (GitHub)
 GITHUB_VERSION_URL = "https://raw.githubusercontent.com/SV1RVP/Electra/main/version.json"
 GITHUB_ZIP_URL = "https://github.com/SV1RVP/Electra/archive/refs/heads/main.zip"
-
-GITLAB_RAW_MAIN_URL = "https://gitlab.com/SV1RVP/electra-ups-monitor/-/raw/main/version.json"
-GITLAB_ZIP_MAIN_URL = "https://gitlab.com/SV1RVP/electra-ups-monitor/-/archive/main/electra-ups-monitor-main.zip"
 
 # Protected user files that are NEVER overwritten or deleted during update
 PRESERVED_USER_FILES = {
@@ -48,6 +45,41 @@ PRESERVED_USER_FILES = {
     "key.pem",
     ".venv"
 }
+
+
+def get_github_token() -> Optional[str]:
+    """Retrieves GitHub token from config.json, environment, or Git Credential Manager."""
+    config_file = BASE_DIR / "config.json"
+    try:
+        if config_file.exists():
+            with open(config_file, "r", encoding="utf-8") as f:
+                c = json.load(f)
+                tok = c.get("github_token")
+                if tok and str(tok).strip():
+                    return str(tok).strip()
+    except Exception:
+        pass
+
+    if os.environ.get("GITHUB_TOKEN"):
+        return os.environ["GITHUB_TOKEN"].strip()
+
+    try:
+        proc = subprocess.run(
+            ["git", "credential", "fill"],
+            input="protocol=https\nhost=github.com\n",
+            text=True,
+            capture_output=True,
+            timeout=3,
+        )
+        if proc.returncode == 0 and proc.stdout:
+            for line in proc.stdout.splitlines():
+                if line.startswith("password="):
+                    pwd = line.split("=", 1)[1].strip()
+                    if pwd:
+                        return pwd
+    except Exception:
+        pass
+    return None
 
 
 def get_local_version() -> Dict[str, Any]:
@@ -78,11 +110,16 @@ def parse_semver(version_str: str) -> Tuple[int, ...]:
 
 
 def get_remote_version() -> Optional[Dict[str, Any]]:
-    """Fetches the latest version metadata from remote repository."""
-    urls = [GITHUB_VERSION_URL, GITLAB_RAW_MAIN_URL]
+    """Fetches the latest version metadata from GitHub."""
+    token = get_github_token()
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Electra-Updater/1.4"}
+    if token:
+        headers["Authorization"] = f"token {token}"
+
+    urls = [GITHUB_VERSION_URL]
     for url in urls:
         try:
-            resp = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Electra-Updater/1.3"})
+            resp = requests.get(url, timeout=8, headers=headers)
             if resp.status_code == 200:
                 data = resp.json()
                 if "version" in data:
@@ -103,14 +140,14 @@ def check_for_updates() -> Dict[str, Any]:
         return {
             "status": "warning",
             "update_available": False,
-            "local_version": local.get("version", "1.3.2"),
+            "local_version": local.get("version", "1.4.1"),
             "remote_version": None,
             "is_git": is_git,
             "message": "Δεν ήταν δυνατή η σύνδεση με το GitHub για έλεγχο νέας έκδοσης.",
         }
 
-    local_ver_str = local.get("version", "1.3.2")
-    remote_ver_str = remote.get("version", "1.3.2")
+    local_ver_str = local.get("version", "1.4.1")
+    remote_ver_str = remote.get("version", "1.4.1")
 
     local_semver = parse_semver(local_ver_str)
     remote_semver = parse_semver(remote_ver_str)
@@ -133,9 +170,12 @@ def check_for_updates() -> Dict[str, Any]:
 
 def download_valid_zip(dest_path: Path) -> bool:
     """Downloads update zip from remote mirrors and validates its integrity."""
-    urls = [GITHUB_ZIP_URL, GITLAB_ZIP_MAIN_URL]
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Electra-Updater/1.3"}
+    token = get_github_token()
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Electra-Updater/1.4"}
+    if token:
+        headers["Authorization"] = f"token {token}"
 
+    urls = [GITHUB_ZIP_URL]
     for url in urls:
         try:
             logger.info(f"Downloading update package from {url} ...")
