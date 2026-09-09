@@ -6,6 +6,7 @@ License: GNU AGPLv3
 
 from __future__ import annotations
 
+import base64
 import io
 import json
 import logging
@@ -112,6 +113,28 @@ def parse_semver(version_str: str) -> Tuple[int, ...]:
 def get_remote_version() -> Optional[Dict[str, Any]]:
     """Fetches the latest version metadata from GitHub."""
     token = get_github_token()
+
+    # 1. First attempt: Direct GitHub API (instantaneous, bypasses Fastly 5-min CDN cache)
+    if token:
+        try:
+            api_url = "https://api.github.com/repos/SV1RVP/Electra/contents/version.json"
+            api_headers = {
+                "User-Agent": "Electra-Updater/1.4",
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github.v3+json",
+            }
+            resp = requests.get(api_url, timeout=6, headers=api_headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                if "content" in data:
+                    raw_bytes = base64.b64decode(data["content"])
+                    parsed = json.loads(raw_bytes.decode("utf-8"))
+                    if "version" in parsed:
+                        return parsed
+        except Exception as e:
+            logger.debug(f"GitHub API version fetch failed, falling back to raw: {e}")
+
+    # 2. Fallback attempt: Raw GitHub content URL
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Electra-Updater/1.4"}
     if token:
         headers["Authorization"] = f"token {token}"
