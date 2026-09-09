@@ -2,7 +2,7 @@
   "app_name": "Electra",
   "name": "Electra - UPS Status Central Monitor",
   "subtitle": "UPS Status Central Monitor",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "release_date": "2026-09-09",
   "author": "Alexandros - Ermis Tsourapas (SV1RVP)",
   "creator": "Alexandros - Ermis Tsourapas (SV1RVP)",
@@ -11,11 +11,11 @@
   "repository": "https://github.com/SV1RVP/Electra",
   "download_url": "https://github.com/SV1RVP/Electra/archive/refs/heads/main.zip",
   "changelog": [
+    "Fixed Megatec/Cypress low-load ADC oscillation (0% vs 7-8%) with Q1 priority and smart anti-flicker debouncing",
+    "Added standalone manual updater (update.py/update.bat/update.sh) for remote agents with config preservation and conflict alerts",
+    "Added central server package distribution endpoint for remote agents (/api/remote/agent/update-package)",
     "Dynamic multi-remote UPS auto-discovery and automatic slot allocation (Remote-1, Remote-2, ...)",
-    "Multi-remote UPS profile management in WebUI Settings with custom display names, locations, and rated power",
-    "Isolated telemetry and dedicated color coding for individual remote UPS units in Chart.js historical charts",
-    "Synchronized multi-unit self-test execution across all active local and remote UPS profiles",
-    "Refined harmonious Dark & Light theme color palettes with enhanced contrast and glassmorphism"
+    "Multi-remote UPS profile management in WebUI Settings with custom display names, locations, and rated power"
   ],
   "commit": ""
 }
