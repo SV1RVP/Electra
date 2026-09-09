@@ -749,6 +749,30 @@ async def push_remote_telemetry(
     }
 
 
+@app.get("/api/remote/agent/update-package")
+def get_remote_agent_update_package(x_api_key: Optional[str] = Header(None)):
+    """Serves a packaged zip of remote_agent files directly to remote agents."""
+    expected_key = config_data.get("remote_api_key", "ups_remote_secret_key_123")
+    if expected_key and x_api_key != expected_key:
+        raise HTTPException(status_code=401, detail="Invalid X-API-Key header.")
+
+    agent_dir = BASE_DIR / "remote_agent"
+    if not agent_dir.exists():
+        raise HTTPException(status_code=404, detail="remote_agent directory not found.")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in agent_dir.iterdir():
+            if f.is_file() and not f.name.endswith(".bak") and not f.name.endswith(".pyc"):
+                zf.write(f, arcname=f"remote_agent/{f.name}")
+    buf.seek(0)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=electra_remote_agent.zip"},
+    )
+
+
 @app.get("/api/settings")
 def get_settings():
     return {

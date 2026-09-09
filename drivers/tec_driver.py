@@ -25,6 +25,8 @@ class TECQ1Reader:
         self.target_path = target_path
         self.hid = None
         self.import_error = None
+        self._last_nonzero_load: Optional[float] = None
+        self._zero_load_count: int = 0
         try:
             import hid
             self.hid = hid
@@ -142,7 +144,7 @@ class TECQ1Reader:
 
     def probe_path(self, path: str) -> Optional[UPSData]:
         """Probes a specific physical HID path."""
-        for cmd in ("QS", "Q1", "D"):
+        for cmd in ("Q1", "QS", "D"):
             for attempt in range(2):
                 try:
                     raw = self.command(cmd, target_path=path, timeout_ms=1000)
@@ -169,16 +171,29 @@ class TECQ1Reader:
 
         errors = []
         target = specific_path or self.target_path
-        for cmd in ("QS", "Q1", "D"):
+        for cmd in ("Q1", "QS", "D"):
             for attempt in range(2):  # 2 attempts per command
                 try:
                     raw = self.command(cmd, target_path=target, timeout_ms=1200)
                     cleaned = raw.strip().replace("\x00", "")
                     if "(" in cleaned:
                         payload = cleaned[cleaned.find("(") :]
-                        return parse_q1(
+                        res = parse_q1(
                             payload, self.name, f"Cypress Q1 ({self.VID:04X}:{self.PID:04X} / {cmd})", location=self.location
                         )
+                        # Low-load debounce to eliminate Megatec ADC hunting (0% vs 7-8%)
+                        if res.mode == "Line" and res.load_pct is not None:
+                            if res.load_pct == 0.0:
+                                if self._last_nonzero_load is not None and self._last_nonzero_load <= 25.0 and self._zero_load_count < 5:
+                                    self._zero_load_count += 1
+                                    res.load_pct = self._last_nonzero_load
+                                else:
+                                    self._zero_load_count = 0
+                                    self._last_nonzero_load = 0.0
+                            else:
+                                self._last_nonzero_load = res.load_pct
+                                self._zero_load_count = 0
+                        return res
                     if raw and attempt == 0:
                         time.sleep(0.06)
                         continue

@@ -346,6 +346,8 @@ class StandaloneTECHIDReader:
         self.location = location
         self.hid = None
         self.import_error = None
+        self._last_nonzero_load: Optional[float] = None
+        self._zero_load_count: int = 0
         try:
             import hid
             self.hid = hid
@@ -434,19 +436,34 @@ class StandaloneTECHIDReader:
             }
 
         errors = []
-        for cmd in ("QS", "Q1", "D"):
+        for cmd in ("Q1", "QS", "D"):
             for attempt in range(2):
                 try:
                     raw = self._command(cmd, timeout_ms=1200)
                     cleaned = raw.strip().replace("\x00", "")
                     if "(" in cleaned:
                         payload = cleaned[cleaned.find("(") :]
-                        return parse_q1(
+                        data = parse_q1(
                             payload,
                             self.name,
                             f"Direct USB HID {self.VID:04X}:{self.PID:04X} ({cmd})",
                             location=self.location,
                         )
+                        # Low-load debounce to eliminate Megatec ADC hunting (0% vs 7-8%)
+                        raw_load = data.get("load_pct")
+                        mode = data.get("mode", "Line")
+                        if mode == "Line" and raw_load is not None:
+                            if raw_load == 0.0:
+                                if self._last_nonzero_load is not None and self._last_nonzero_load <= 25.0 and self._zero_load_count < 5:
+                                    self._zero_load_count += 1
+                                    data["load_pct"] = self._last_nonzero_load
+                                else:
+                                    self._zero_load_count = 0
+                                    self._last_nonzero_load = 0.0
+                            else:
+                                self._last_nonzero_load = raw_load
+                                self._zero_load_count = 0
+                        return data
                     if raw and attempt == 0:
                         time.sleep(0.06)
                         continue

@@ -24,6 +24,8 @@ class RemoteReceiver:
         self.last_seen: float = 0.0
         self.latest_data: Optional[UPSData] = None
         self.remote_ip: Optional[str] = None
+        self._last_nonzero_load: Optional[float] = None
+        self._zero_load_count: int = 0
 
     def push_telemetry(self, payload: Dict[str, Any], client_ip: str = "unknown") -> UPSData:
         self.remote_ip = client_ip
@@ -31,17 +33,43 @@ class RemoteReceiver:
 
         name = payload.get("name", self.name)
         location = payload.get("location", self.location)
+        mode = payload.get("mode", "Line")
+
+        raw_load = payload.get("load_pct")
+        load_val = raw_load
+        if raw_load is not None:
+            try:
+                flt_load = float(raw_load)
+                if mode == "Line":
+                    # If reading drops to 0% briefly during Line mode but was previously small (<25%),
+                    # debounce it for up to 5 consecutive cycles (~10-15s) to eliminate ADC threshold hunting.
+                    if flt_load == 0.0:
+                        if self._last_nonzero_load is not None and self._last_nonzero_load <= 25.0 and self._zero_load_count < 5:
+                            self._zero_load_count += 1
+                            load_val = self._last_nonzero_load
+                        else:
+                            self._zero_load_count = 0
+                            self._last_nonzero_load = 0.0
+                            load_val = 0.0
+                    else:
+                        self._last_nonzero_load = flt_load
+                        self._zero_load_count = 0
+                        load_val = flt_load
+                else:
+                    load_val = flt_load
+            except Exception:
+                load_val = raw_load
 
         data = UPSData(
             name=name,
             source=f"Remote IP: {client_ip}",
             connected=bool(payload.get("connected", True)),
-            mode=payload.get("mode", "Line"),
+            mode=mode,
             input_v=payload.get("input_v"),
             output_v=payload.get("output_v"),
             input_hz=payload.get("input_hz"),
             output_hz=payload.get("output_hz", payload.get("input_hz")),
-            load_pct=payload.get("load_pct"),
+            load_pct=load_val,
             battery_v=payload.get("battery_v"),
             battery_pct=payload.get("battery_pct"),
             load_w_est=payload.get("load_w_est"),
