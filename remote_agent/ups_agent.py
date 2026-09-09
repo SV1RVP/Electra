@@ -12,7 +12,7 @@ Supported Protocols & Auto-Discovery:
 
 Usage:
     py ups_agent.py
-    py ups_agent.py --server http://10.10.1.10:8088/api/remote/push --name "Remote-UPS"
+    py ups_agent.py --server http://<YOUR_SERVER_IP>:8088/api/remote/push --name "Remote-UPS"
 """
 
 from __future__ import annotations

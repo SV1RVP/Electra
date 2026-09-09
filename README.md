@@ -143,7 +143,7 @@ To monitor one or multiple UPS units connected to remote machines (e.g. PCs, ser
    Edit `remote_agent/agent_config.json`:
    ```json
    {
-     "server_url": "http://10.10.1.10:8088/api/remote/push",
+     "server_url": "http://<YOUR_SERVER_IP>:8088/api/remote/push",
      "api_key": "ups_remote_secret_key_123",
      "ups_name": "Remote-1",
      "location": "Remote Server Room",
@@ -357,7 +357,7 @@ chmod +x uninstall-linux.sh
    Επεξεργαστείτε το `remote_agent/agent_config.json`:
    ```json
    {
-     "server_url": "http://10.10.1.10:8088/api/remote/push",
+     "server_url": "http://<YOUR_SERVER_IP>:8088/api/remote/push",
      "api_key": "ups_remote_secret_key_123",
      "ups_name": "Remote-1",
      "location": "Απομακρυσμένο Server Room",
