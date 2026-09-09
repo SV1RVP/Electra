@@ -1,7 +1,7 @@
 # ⚡ Electra - UPS Status Central Monitor 🔋📊
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.3.5-emerald.svg)](version.json)
+[![Version](https://img.shields.io/badge/Version-1.4.0-emerald.svg)](version.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Raspberry%20Pi-purple.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)
@@ -29,8 +29,14 @@
   2. **MEC0003 / Richcomm Generic HID (`0001:0000`)**: Turbo-X, Tescom Leo LCD, Mustek, PowerWalker, Centralion.
   3. **USB HID Power Device Class (PDC)**: **APC by Schneider Electric** (`051D`), **CyberPower** (`0764`), **Eaton** (`0463`), **Tripp Lite** (`09AE`).
   4. **Serial-over-USB Megatec Q1**: Virtual COM / `ttyUSB` / FTDI / CH340 / CP2102 serial bridges.
-  5. **Remote-1 (Remote Site via IP)**: Standalone remote telemetry agent posting live metrics over secure REST API (`/api/remote/push`) across local networks or WireGuard VPN tunnels.
+  5. **Dynamic Multi-Remote Auto-Discovery (`Remote-1`, `Remote-2`, ... via IP)**: Standalone remote telemetry agents posting live metrics over secure REST API (`/api/remote/push`) across LAN or WireGuard VPN tunnels. Supports unlimited remote nodes with dynamic auto-registration, isolated telemetry, and WebUI management.
 - **Dynamic Names & Locations**: Full customization of display names, locations, rated watts, and battery capacities directly from the WebUI Settings modal or `profiles.json`.
+
+### 🌐 Fleet Monitoring & Multi-Remote UPS Management
+- **Automatic Remote UPS Auto-Discovery**: The central server dynamically registers newly discovered remote units (`Remote-1`, `Remote-2`, etc.) the instant they transmit telemetry, creating dedicated profile records without requiring manual server reboots.
+- **WebUI Remote Profiles Management**: Directly customize display names, physical installation sites, rated power capacities (Watts), and enable/disable states for every remote node within the Settings modal.
+- **Strict Telemetry & Chart Isolation**: Distinct slot color palettes (`#00f0ff` Local-1, `#00e676` Local-2, `#ff007f` Remote-1, `#b388ff` Remote-2, `#ffab00` Remote-3, `#ff5252` Remote-4) and isolated filtering guarantee no data crosstalk between local and remote units.
+- **Fleet-Wide Synchronized Self-Test**: Initiate diagnostic self-tests across all active local and remote UPS units simultaneously with one click.
 
 ### 🖥️ Modern WebUI Dashboard
 - **Cyberpunk / Glassmorphic UI**: High-contrast, glowing neon aesthetic with dark mode and optional light theme.
@@ -64,7 +70,7 @@
 - **Automated Daily Status Report**: Scheduled daily summary broadcast at a user-defined time (e.g. 09:00).
 
 ### 🔄 One-Click Auto-Update & Maintenance
-- **WebUI Version Checker**: Header widget displays the current version (`v1.1.0`) with a single-click update checker.
+- **WebUI Version Checker**: Header widget displays the current version (`v1.4.0`) with a single-click update checker.
 - **One-Click Update ("⚡ Update Now")**: Pulls new code from Git or downloads the universal update ZIP, extracts files safely (preserving configurations and telemetry databases), and automatically restarts the background service.
 
 ---
@@ -80,7 +86,7 @@
 | **Eaton / Powerware** | USB HID | `0463:ffff` | USB HID Power Device Class (PDC) |
 | **Tripp Lite** | USB HID | `09AE:0001` | USB HID Power Device Class (PDC) |
 | **Serial-over-USB (FTDI / CH340 / CP2102 / Prolific)** | Virtual COM / ttyUSB | `COM1..32` / `/dev/ttyUSB*` | Megatec Q1 ASCII Protocol |
-| **Any Remote UPS / PC (Remote Agent)** | HTTP / WireGuard | Remote REST Port `8088` | JSON Push API (`/api/remote/push`) |
+| **Multiple Remote UPS Nodes (Remote Agent)** | HTTP / WireGuard | Remote REST Port `8088` | JSON Push API (`/api/remote/push`) |
 
 ---
 
@@ -129,24 +135,37 @@
 
 ## 🌐 Remote UPS Agent Deployment
 
-To monitor a UPS connected to another machine (e.g. a remote PC or server across a WireGuard VPN tunnel):
+To monitor one or multiple UPS units connected to remote machines (e.g. PCs, servers, or edge gateways across LAN or WireGuard VPN):
 
-1. Copy the `remote_agent/` directory to the target machine.
-2. Edit `remote_agent/agent_config.json`:
+1. **Copy the agent folder**:
+   Copy the `remote_agent/` directory to each target machine (e.g. to `Desktop\remote_agent`).
+2. **Configure the agent**:
+   Edit `remote_agent/agent_config.json`:
    ```json
    {
      "server_url": "http://10.10.1.10:8088/api/remote/push",
      "api_key": "ups_remote_secret_key_123",
      "ups_name": "Remote-1",
-     "location": "Remote Site",
-     "driver": "auto",
-     "interval_seconds": 2.0
+     "location": "Remote Server Room",
+     "driver_type": "auto",
+     "poll_interval_seconds": 2.0
    }
    ```
-3. Run the agent:
+3. **Start the agent**:
    - **Windows**: Run `run_agent.bat` (or `python ups_agent.py`).
-   - **Linux**: Run `./run_agent.sh`.
-4. The central server will automatically receive and plot live metrics from the remote UPS!
+   - **Linux**: Run `./run_agent.sh` (or install as systemd service via `install-linux.sh`).
+
+### 📡 Multi-Remote Setup & Auto-Discovery
+Electra supports **unlimited remote UPS units** connected simultaneously with zero configuration on the central server:
+- **Node 1**: Set `"ups_name": "Remote-1"` in its `agent_config.json`.
+- **Node 2**: Set `"ups_name": "Remote-2"` in its `agent_config.json`.
+- **Node 3**: Set `"ups_name": "Remote-3"` in its `agent_config.json`, and so on.
+
+As soon as telemetry is received from each remote agent:
+- 📊 **Dynamic Dashboard Cards**: A new live card automatically appears in the WebUI Dashboard.
+- 📈 **Historical Chart Isolation**: Each unit is assigned its own tab filter and dedicated distinct color (`#ff007f`, `#b388ff`, `#ffab00`, `#ff5252`, etc.), preventing data cross-contamination.
+- ⚙️ **Settings & Profiles**: The profile is automatically registered in **Settings $\rightarrow$ Profiles**, where you can customize its display name, location, rated capacity (W), or toggle it on/off.
+- 🧪 **Synchronized Self-Test**: You can trigger diagnostic battery self-tests across all active units simultaneously from the WebUI.
 
 ---
 
@@ -224,8 +243,14 @@ chmod +x uninstall-linux.sh
   2. **MEC0003 / Richcomm Generic HID (`0001:0000`)**: Turbo-X, Tescom Leo LCD, Mustek, PowerWalker, Centralion.
   3. **USB HID Power Device Class (PDC)**: **APC by Schneider Electric** (`051D`), **CyberPower** (`0764`), **Eaton** (`0463`), **Tripp Lite** (`09AE`).
   4. **Serial-over-USB Megatec Q1**: Εικονικές θύρες COM / `ttyUSB` / FTDI / CH340 / CP2102 serial bridges.
-  5. **Remote-1 (Απομακρυσμένη Τοποθεσία μέσω IP)**: Αυτόνομος agent τηλεμετρίας που στέλνει ζωντανά δεδομένα μέσω ασφαλούς REST API (`/api/remote/push`) σε τοπικό δίκτυο ή WireGuard VPN tunnel.
+  5. **Αυτόματη Ανίχνευση Πολλαπλών Remote UPS (`Remote-1`, `Remote-2`, ... μέσω IP)**: Αυτόνομοι agents τηλεμετρίας που αποστέλλουν ζωντανές μετρήσεις μέσω ασφαλούς REST API (`/api/remote/push`) σε τοπικό δίκτυο ή WireGuard VPN. Υποστηρίζει απεριόριστα απομακρυσμένα UPS με δυναμική αυτόματη καταχώρηση, διαχείριση προφίλ ανά μονάδα, ξεχωριστά χρώματα στα γραφήματα ιστορικού και απομονωμένες εντολές.
 - **Δυναμικά Ονόματα & Τοποθεσίες**: Πλήρης παραμετροποίηση ονομάτων εμφάνισης, τοποθεσιών, ονομαστικής ισχύος (Watts) και χωρητικότητας μπαταρίας από το WebUI ή το `profiles.json`.
+
+### 🌐 Διαχείριση Στόλου & Πολλαπλών Remote UPS
+- **Δυναμική Αυτόματη Ανίχνευση (Auto-Discovery)**: Ο κεντρικός server αναγνωρίζει και καταχωρεί αυτόματα κάθε νέο απομακρυσμένο UPS (`Remote-1`, `Remote-2`, κ.λπ.) με την πρώτη αποστολή τηλεμετρίας, χωρίς να απαιτείται επανεκκίνηση της εφαρμογής.
+- **Διαχείριση Προφίλ Remote UPS στο WebUI**: Πλήρης παραμετροποίηση του ονόματος εμφάνισης, της φυσικής τοποθεσίας, της ονομαστικής ισχύος (Watts) και ενεργοποίησης/απενεργοποίησης κάθε remote μονάδας απευθείας από το παράθυρο Ρυθμίσεων.
+- **Πλήρης Απομόνωση Τηλεμετρίας & Γραφημάτων**: Ξεχωριστές παλέτες χρωμάτων (`#00f0ff` Local-1, `#00e676` Local-2, `#ff007f` Remote-1, `#b388ff` Remote-2, `#ffab00` Remote-3, `#ff5252` Remote-4) και αυστηρό φιλτράρισμα αποτρέπουν οποιοδήποτε μπέρδεμα μετρήσεων μεταξύ τοπικών και απομακρυσμένων μονάδων.
+- **Συγχρονισμένο Self-Test Όλων των Μονάδων**: Εκτέλεση διαγνωστικού ελέγχου (Self-Test) σε όλα τα ενεργά τοπικά και απομακρυσμένα UPS ταυτόχρονα με 1 κλικ.
 
 ### 🖥️ Σύγχρονο WebUI Dashboard
 - **Cyberpunk / Glassmorphic Σχεδιασμός**: Υψηλής αντίθεσης neon αισθητική με Dark Mode και εναλλακτικό Light Theme.
@@ -259,7 +284,7 @@ chmod +x uninstall-linux.sh
 - **Προγραμματισμένη Ημερήσια Αναφορά**: Αυτόματη αποστολή σύνοψης κατάστασης σε προκαθορισμένη ώρα (π.χ. 09:00).
 
 ### 🔄 Αυτόματη Ενημέρωση με 1 Κλικ
-- **Έλεγχος Έκδοσης στο WebUI**: Εμφάνιση της τρέχουσας έκδοσης (`v1.1.0`) στην κεφαλίδα με κουμπί ελέγχου νεότερης έκδοσης.
+- **Έλεγχος Έκδοσης στο WebUI**: Εμφάνιση της τρέχουσας έκδοσης (`v1.4.0`) στην κεφαλίδα με κουμπί ελέγχου νεότερης έκδοσης.
 - **Ενημέρωση με 1 Κλικ («⚡ Ενημέρωση Τώρα»)**: Λήψη του νέου κώδικα από το Git ή ZIP, ασφαλής εφαρμογή των αρχείων (διατηρώντας τις ρυθμίσεις και τη βάση δεδομένων) και αυτόματη επανεκκίνηση της υπηρεσίας.
 
 ---
@@ -275,7 +300,7 @@ chmod +x uninstall-linux.sh
 | **Eaton / Powerware** | USB HID | `0463:ffff` | USB HID Power Device Class (PDC) |
 | **Tripp Lite** | USB HID | `09AE:0001` | USB HID Power Device Class (PDC) |
 | **Serial-over-USB (FTDI / CH340 / CP2102 / Prolific)** | Virtual COM / ttyUSB | `COM1..32` / `/dev/ttyUSB*` | Megatec Q1 ASCII Protocol |
-| **Οποιοδήποτε Απομακρυσμένο UPS / PC (Remote Agent)** | HTTP / WireGuard | Remote REST Port `8088` | JSON Push API (`/api/remote/push`) |
+| **Πολλαπλοί Απομακρυσμένοι Κόμβοι UPS (Remote Agent)** | HTTP / WireGuard | Remote REST Port `8088` | JSON Push API (`/api/remote/push`) |
 
 ---
 
@@ -324,24 +349,37 @@ chmod +x uninstall-linux.sh
 
 ## 🌐 Εγκατάσταση Απομακρυσμένου Agent (Remote UPS Agent)
 
-Για την παρακολούθηση UPS συνδεδεμένου σε άλλο μηχάνημα (π.χ. απομακρυσμένο PC/Server μέσω WireGuard VPN):
+Για την παρακολούθηση ενός ή πολλαπλών UPS συνδεδεμένων σε άλλα μηχανήματα (π.χ. απομακρυσμένα PC/Server μέσω τοπικού δικτύου ή WireGuard VPN):
 
-1. Αντιγράψτε τον φάκελο `remote_agent/` στο απομακρυσμένο μηχάνημα.
-2. Επεξεργαστείτε το `remote_agent/agent_config.json`:
+1. **Αντιγραφή φακέλου**:  
+   Αντιγράψτε τον φάκελο `remote_agent/` σε κάθε απομακρυσμένο μηχάνημα (π.χ. στην Επιφάνεια Εργασίας `Desktop\remote_agent`).
+2. **Ρύθμιση Agent**:  
+   Επεξεργαστείτε το `remote_agent/agent_config.json`:
    ```json
    {
      "server_url": "http://10.10.1.10:8088/api/remote/push",
      "api_key": "ups_remote_secret_key_123",
      "ups_name": "Remote-1",
-     "location": "Remote Site",
-     "driver": "auto",
-     "interval_seconds": 2.0
+     "location": "Απομακρυσμένο Server Room",
+     "driver_type": "auto",
+     "poll_interval_seconds": 2.0
    }
    ```
-3. Εκτελέστε τον agent:
+3. **Εκκίνηση Agent**:  
    - **Windows**: Εκτελέστε το `run_agent.bat` (ή `python ups_agent.py`).
-   - **Linux**: Εκτελέστε το `./run_agent.sh`.
-4. Ο κεντρικός server θα αρχίσει να λαμβάνει και να καταγράφει αυτόματα ζωντανή τηλεμετρία!
+   - **Linux**: Εκτελέστε το `./run_agent.sh` (ή μέσω systemd υπηρεσίας).
+
+### 📡 Σύνδεση Πολλαπλών Remote UPS & Αυτόματη Αναγνώριση (Auto-Discovery)
+Το Electra υποστηρίζει **απεριόριστα Remote UPS ταυτόχρονα** χωρίς καμία προηγούμενη ρύθμιση στον κεντρικό server:
+- **1ος Απομακρυσμένος Υπολογιστής**: Στο `agent_config.json`, ορίζετε `"ups_name": "Remote-1"`.
+- **2ος Απομακρυσμένος Υπολογιστής**: Στο `agent_config.json`, ορίζετε `"ups_name": "Remote-2"`.
+- **3ος Απομακρυσμένος Υπολογιστής**: Στο `agent_config.json`, ορίζετε `"ups_name": "Remote-3"` κ.ο.κ.
+
+Μόλις ο κεντρικός server λάβει τις πρώτες μετρήσεις από κάθε remote agent:
+- 📊 **Αυτόματη Κάρτα στο Dashboard**: Δημιουργείται άμεσα νέα ζωντανή κάρτα στο WebUI.
+- 📈 **Πλήρης Απομόνωση Γραφημάτων**: Προστίθεται κουμπί φιλτραρίσματος στα ιστορικά γραφήματα με ξεχωριστή παλέτα χρώματος (`#ff007f`, `#b388ff`, `#ffab00`, `#ff5252`, κ.λπ.).
+- ⚙️ **Ρυθμίσεις & Προφίλ**: Το νέο προφίλ καταχωρείται αυτόματα στις **Ρυθμίσεις $\rightarrow$ Προφίλ**, όπου μπορείτε να προσαρμόσετε το όνομα, την τοποθεσία, τα Watts ή να το απενεργοποιήσετε.
+- 🧪 **Συγχρονισμένο Self-Test**: Μπορείτε να εκτελέσετε διαγνωστικό έλεγχο σε όλα τα ενεργά UPS ταυτόχρονα.
 
 ---
 

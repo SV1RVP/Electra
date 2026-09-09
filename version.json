@@ -2,8 +2,8 @@
   "app_name": "Electra",
   "name": "Electra - UPS Status Central Monitor",
   "subtitle": "UPS Status Central Monitor",
-  "version": "1.3.5",
-  "release_date": "2026-08-29",
+  "version": "1.4.0",
+  "release_date": "2026-09-09",
   "author": "Alexandros - Ermis Tsourapas (SV1RVP)",
   "creator": "Alexandros - Ermis Tsourapas (SV1RVP)",
   "license": "GNU Affero General Public License v3.0 (AGPL-3.0)",
@@ -11,10 +11,11 @@
   "repository": "https://github.com/SV1RVP/Electra",
   "download_url": "https://github.com/SV1RVP/Electra/archive/refs/heads/main.zip",
   "changelog": [
-    "Refined harmonious Dark & Light theme color palettes with enhanced contrast and glassmorphism",
-    "Persistent theme state across reloads with dynamic Chart.js theme re-rendering",
-    "Fixed historical telemetry charts filtering for Local-1 and Local-2 UPS",
-    "Centered modern charts dashboard layout with rich segmented controls and distinct icons"
+    "Dynamic multi-remote UPS auto-discovery and automatic slot allocation (Remote-1, Remote-2, ...)",
+    "Multi-remote UPS profile management in WebUI Settings with custom display names, locations, and rated power",
+    "Isolated telemetry and dedicated color coding for individual remote UPS units in Chart.js historical charts",
+    "Synchronized multi-unit self-test execution across all active local and remote UPS profiles",
+    "Refined harmonious Dark & Light theme color palettes with enhanced contrast and glassmorphism"
   ],
   "commit": ""
 }
