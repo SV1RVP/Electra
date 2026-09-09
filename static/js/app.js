@@ -47,6 +47,8 @@ const I18N = {
 
     grid_in: "Είσοδος",
     ups_out: "Έξοδος",
+    power_watts: "Ισχύς",
+    current_amps: "Ρεύμα",
     frequency: "Συχνότητα",
     batt_volts: "Τάση Μπατ.",
     beeper: "Beeper",
@@ -220,6 +222,8 @@ const I18N = {
 
     grid_in: "Input",
     ups_out: "Output",
+    power_watts: "Power",
+    current_amps: "Current",
     frequency: "Frequency",
     batt_volts: "Batt Volts",
     beeper: "Beeper",
@@ -823,28 +827,36 @@ function createUPSCardElement(ups, safeId) {
     <!-- METRICS GRID -->
     <div class="metrics-grid">
       <div class="metric-item">
-        <span class="lbl">${t('grid_in')}</span>
+        <span class="lbl" data-i18n="grid_in">${t('grid_in')}</span>
         <span class="val card-input-v">230 V</span>
       </div>
       <div class="metric-item">
-        <span class="lbl">${t('ups_out')}</span>
+        <span class="lbl" data-i18n="ups_out">${t('ups_out')}</span>
         <span class="val card-output-v">230 V</span>
       </div>
       <div class="metric-item">
-        <span class="lbl">${t('frequency')}</span>
+        <span class="lbl" data-i18n="power_watts">${t('power_watts')}</span>
+        <span class="val card-watts">0 W</span>
+      </div>
+      <div class="metric-item">
+        <span class="lbl" data-i18n="current_amps">${t('current_amps')}</span>
+        <span class="val card-amps">0.00 A</span>
+      </div>
+      <div class="metric-item">
+        <span class="lbl" data-i18n="frequency">${t('frequency')}</span>
         <span class="val card-freq">50.0 Hz</span>
       </div>
       <div class="metric-item">
-        <span class="lbl">${t('batt_volts')}</span>
+        <span class="lbl" data-i18n="batt_volts">${t('batt_volts')}</span>
         <span class="val card-battery-v">27.2 V</span>
       </div>
       <div class="metric-item">
-        <span class="lbl">${t('beeper')}</span>
-        <span class="val card-beeper">OFF</span>
+        <span class="lbl" data-i18n="status_mode">${t('status_mode')}</span>
+        <span class="val card-mode-val">Line</span>
       </div>
       <div class="metric-item">
-        <span class="lbl">${t('status_mode')}</span>
-        <span class="val card-mode-val">Line</span>
+        <span class="lbl" data-i18n="beeper">${t('beeper')}</span>
+        <span class="val card-beeper">OFF</span>
       </div>
     </div>
 
@@ -1012,22 +1024,49 @@ function updateUPSCard(card, ups) {
 
   // Metrics Table Values
   const inV = card.querySelector('.card-input-v');
-  if (inV) inV.textContent = ups.input_v !== null ? `${ups.input_v.toFixed(1)} V` : '—';
+  if (inV) inV.textContent = ups.input_v !== null && ups.input_v !== undefined ? `${ups.input_v.toFixed(1)} V` : '—';
   
   const outV = card.querySelector('.card-output-v');
-  if (outV) outV.textContent = ups.output_v !== null ? `${ups.output_v.toFixed(1)} V` : '—';
+  if (outV) outV.textContent = ups.output_v !== null && ups.output_v !== undefined ? `${ups.output_v.toFixed(1)} V` : '—';
+
+  const wattsEl = card.querySelector('.card-watts');
+  if (wattsEl) {
+    if (ups.connected && ups.load_w_est !== null && ups.load_w_est !== undefined) {
+      wattsEl.textContent = `${Math.round(ups.load_w_est)} W`;
+    } else {
+      wattsEl.textContent = '—';
+    }
+  }
+
+  const ampsEl = card.querySelector('.card-amps');
+  if (ampsEl) {
+    if (ups.connected) {
+      let amps = ups.load_a_est;
+      if ((amps === null || amps === undefined) && ups.load_w_est !== null && ups.load_w_est !== undefined) {
+        const v = (ups.output_v && ups.output_v > 10) ? ups.output_v : ((ups.input_v && ups.input_v > 10) ? ups.input_v : 230.0);
+        amps = ups.load_w_est / v;
+      }
+      if (amps !== null && amps !== undefined) {
+        ampsEl.textContent = `${Number(amps).toFixed(2)} A`;
+      } else {
+        ampsEl.textContent = '—';
+      }
+    } else {
+      ampsEl.textContent = '—';
+    }
+  }
 
   const freqEl = card.querySelector('.card-freq');
-  if (freqEl) freqEl.textContent = ups.input_hz !== null ? `${ups.input_hz.toFixed(1)} Hz` : '—';
+  if (freqEl) freqEl.textContent = ups.input_hz !== null && ups.input_hz !== undefined ? `${ups.input_hz.toFixed(1)} Hz` : '—';
 
   const battVEl = card.querySelector('.card-battery-v');
-  if (battVEl) battVEl.textContent = ups.battery_v !== null ? `${ups.battery_v.toFixed(1)} V` : '—';
-
-  const beepEl = card.querySelector('.card-beeper');
-  if (beepEl) beepEl.textContent = ups.beeper_on ? 'ON' : 'OFF';
+  if (battVEl) battVEl.textContent = ups.battery_v !== null && ups.battery_v !== undefined ? `${ups.battery_v.toFixed(1)} V` : '—';
 
   const modeEl = card.querySelector('.card-mode-val');
   if (modeEl) modeEl.textContent = mode;
+
+  const beepEl = card.querySelector('.card-beeper');
+  if (beepEl) beepEl.textContent = ups.beeper_on ? 'ON' : 'OFF';
 
   // Runtime
   const runtimeEl = card.querySelector('.card-runtime');

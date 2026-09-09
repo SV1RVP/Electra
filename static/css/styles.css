@@ -605,8 +605,8 @@ body {
 /* METRICS TABLE GRID */
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px 10px;
   background: rgba(0, 0, 0, 0.15);
   padding: 14px;
   border-radius: var(--radius-md);
@@ -617,20 +617,25 @@ body {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
 
 .metric-item .lbl {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .metric-item .val {
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--text-main);
+  white-space: nowrap;
 }
 
 /* RUNTIME & BATTERY HEALTH BANNER */
@@ -1370,6 +1375,7 @@ body {
   .app-header { flex-direction: column; align-items: flex-start; gap: 14px; }
   .header-actions { width: 100%; justify-content: space-between; }
   .gauges-row { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .ups-card-actions { flex-direction: column; }
   .btn-action-pill { width: 100%; }
 }

@@ -95,7 +95,7 @@ def get_local_version() -> Dict[str, Any]:
         "app_name": "Electra",
         "name": "Electra - UPS Status Central Monitor",
         "subtitle": "UPS Status Central Monitor",
-        "version": "1.4.2",
+        "version": "1.4.3",
         "author": "Alexandros - Ermis Tsourapas (SV1RVP)",
         "license": "GNU Affero General Public License v3.0 (AGPL-3.0)"
     }
@@ -163,14 +163,14 @@ def check_for_updates() -> Dict[str, Any]:
         return {
             "status": "warning",
             "update_available": False,
-            "local_version": local.get("version", "1.4.2"),
+            "local_version": local.get("version", "1.4.3"),
             "remote_version": None,
             "is_git": is_git,
             "message": "Δεν ήταν δυνατή η σύνδεση με το GitHub για έλεγχο νέας έκδοσης.",
         }
 
-    local_ver_str = local.get("version", "1.4.2")
-    remote_ver_str = remote.get("version", "1.4.2")
+    local_ver_str = local.get("version", "1.4.3")
+    remote_ver_str = remote.get("version", "1.4.3")
 
     local_semver = parse_semver(local_ver_str)
     remote_semver = parse_semver(remote_ver_str)

@@ -1,7 +1,7 @@
 # ⚡ Electra - UPS Status Central Monitor 🔋📊
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.4.2-emerald.svg)](version.json)
+[![Version](https://img.shields.io/badge/Version-1.4.3-emerald.svg)](version.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Raspberry%20Pi-purple.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)
@@ -70,7 +70,7 @@
 - **Automated Daily Status Report**: Scheduled daily summary broadcast at a user-defined time (e.g. 09:00).
 
 ### 🔄 One-Click Auto-Update & Maintenance
-- **WebUI Version Checker**: Header widget displays the current version (`v1.4.2`) with a single-click update checker.
+- **WebUI Version Checker**: Header widget displays the current version (`v1.4.3`) with a single-click update checker.
 - **One-Click Update ("⚡ Update Now")**: Pulls new code from Git or downloads the universal update ZIP, extracts files safely (preserving configurations and telemetry databases), and automatically restarts the background service.
 
 ---
@@ -284,7 +284,7 @@ chmod +x uninstall-linux.sh
 - **Προγραμματισμένη Ημερήσια Αναφορά**: Αυτόματη αποστολή σύνοψης κατάστασης σε προκαθορισμένη ώρα (π.χ. 09:00).
 
 ### 🔄 Αυτόματη Ενημέρωση με 1 Κλικ
-- **Έλεγχος Έκδοσης στο WebUI**: Εμφάνιση της τρέχουσας έκδοσης (`v1.4.2`) στην κεφαλίδα με κουμπί ελέγχου νεότερης έκδοσης.
+- **Έλεγχος Έκδοσης στο WebUI**: Εμφάνιση της τρέχουσας έκδοσης (`v1.4.3`) στην κεφαλίδα με κουμπί ελέγχου νεότερης έκδοσης.
 - **Ενημέρωση με 1 Κλικ («⚡ Ενημέρωση Τώρα»)**: Λήψη του νέου κώδικα από το Git ή ZIP, ασφαλής εφαρμογή των αρχείων (διατηρώντας τις ρυθμίσεις και τη βάση δεδομένων) και αυτόματη επανεκκίνηση της υπηρεσίας.
 
 ---

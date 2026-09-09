@@ -367,6 +367,15 @@ class RuntimeEstimator:
 
         load_w, model_runtime, peukert = self._model_runtime(d, profile)
         d.load_w_est = round(load_w, 1) if load_w is not None else None
+        if d.load_w_est is not None:
+            v_out = (
+                d.output_v
+                if (d.output_v is not None and d.output_v > 10.0)
+                else (d.input_v if (d.input_v is not None and d.input_v > 10.0) else 230.0)
+            )
+            d.load_a_est = round(d.load_w_est / v_out, 2)
+        else:
+            d.load_a_est = None
 
         if (d.mode or "").lower() == "battery":
             self._start_or_update_session(d, profile, load_w, peukert)

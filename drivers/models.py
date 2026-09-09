@@ -19,6 +19,7 @@ class UPSData:
     battery_v: Optional[float] = None
     battery_pct: Optional[float] = None
     load_w_est: Optional[float] = None
+    load_a_est: Optional[float] = None
     runtime_minutes: Optional[float] = None
     runtime_source: Optional[str] = None
     temperature_c: Optional[float] = None

@@ -73,6 +73,7 @@ class RemoteReceiver:
             battery_v=payload.get("battery_v"),
             battery_pct=payload.get("battery_pct"),
             load_w_est=payload.get("load_w_est"),
+            load_a_est=payload.get("load_a_est"),
             runtime_minutes=payload.get("runtime_minutes"),
             runtime_source=payload.get("runtime_source", "remote-agent"),
             temperature_c=payload.get("temperature_c"),
