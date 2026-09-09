@@ -9,7 +9,7 @@ set -e
 
 echo ""
 echo "======================================================================"
-echo "      ELECTRA - UPS STATUS CENTRAL MONITOR - LINUX UNINSTALLER"
+echo "      Electra - UPS STATUS CENTRAL MONITOR - LINUX UNINSTALLER"
 echo "    Creator: Alexandros - Ermis Tsourapas (SV1RVP)"
 echo "======================================================================"
 echo ""

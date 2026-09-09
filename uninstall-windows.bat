@@ -6,7 +6,7 @@ cd /d "%~dp0"
 
 echo.
 echo ======================================================================
-echo           ELECTRA - UPS STATUS CENTRAL MONITOR - UNINSTALLER
+echo           Electra - UPS STATUS CENTRAL MONITOR - UNINSTALLER
 echo    Creator: Alexandros - Ermis Tsourapas (SV1RVP)
 echo ======================================================================
 echo.
@@ -60,7 +60,7 @@ echo [OK] Temporary runtime cache cleared.
 echo.
 
 echo ======================================================================
-echo           [SUCCESS] ELECTRA UNINSTALLED FROM WINDOWS!
+echo           [SUCCESS] Electra UNINSTALLED FROM WINDOWS!
 echo ======================================================================
 echo Services and autostart shortcuts have been completely removed.
 echo.

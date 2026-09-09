@@ -2,7 +2,7 @@
 title Electra - UPS Status Central Monitor
 cd /d "%~dp0"
 echo ===================================================
-echo     ELECTRA - UPS STATUS CENTRAL MONITOR
+echo     Electra - UPS STATUS CENTRAL MONITOR
 echo ===================================================
 echo.
 

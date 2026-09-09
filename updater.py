@@ -310,7 +310,7 @@ title Electra - Windows Auto-Updater
 cd /d "{BASE_DIR}"
 
 echo ============================================================
-echo         ELECTRA - UPDATING APPLICATION FILES
+echo         Electra - UPDATING APPLICATION FILES
 echo ============================================================
 echo Waiting for active server processes to close...
 timeout /t 2 /nobreak > nul

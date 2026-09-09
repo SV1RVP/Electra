@@ -6,7 +6,7 @@ cd /d "%~dp0"
 
 echo.
 echo ======================================================================
-echo           ELECTRA - UPS STATUS CENTRAL MONITOR - INSTALLER
+echo           Electra - UPS STATUS CENTRAL MONITOR - INSTALLER
 echo    Creator: Alexandros - Ermis Tsourapas (SV1RVP)
 echo    License: GNU AGPL-3.0
 echo ======================================================================
@@ -86,7 +86,7 @@ if /i "%AUTO_CHOICE%"=="Y" (
 
 echo.
 echo ======================================================================
-echo          [SUCCESS] ELECTRA INSTALLED SUCCESSFULLY!
+echo          [SUCCESS] Electra INSTALLED SUCCESSFULLY!
 echo ======================================================================
 echo.
 echo Run 'start_server.bat' to start Electra.

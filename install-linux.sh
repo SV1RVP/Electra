@@ -9,7 +9,7 @@ set -e
 
 echo ""
 echo "======================================================================"
-echo "    ELECTRA - UPS STATUS CENTRAL MONITOR - LINUX INSTALLER"
+echo "    Electra - UPS STATUS CENTRAL MONITOR - LINUX INSTALLER"
 echo "    Creator: Alexandros - Ermis Tsourapas (SV1RVP)"
 echo "    License: GNU AGPL-3.0"
 echo "======================================================================"
@@ -150,7 +150,7 @@ fi
 
 echo ""
 echo "======================================================================"
-echo "          [SUCCESS] ELECTRA INSTALLED SUCCESSFULLY!                   "
+echo "          [SUCCESS] Electra INSTALLED SUCCESSFULLY!                   "
 echo "======================================================================"
 echo "  - Access WebUI Dashboard: http://localhost:8088 (or http://<IP>:8088)"
 echo "  - Manual start: ./start_server.sh"

@@ -62,7 +62,7 @@ UPDATABLE_FILES = [
 
 def print_banner():
     print("=" * 68)
-    print("⚡ ELECTRA REMOTE UPS AGENT - MANUAL UPDATER")
+    print("⚡ Electra REMOTE UPS AGENT - MANUAL UPDATER")
     print("=" * 68)
 
 
