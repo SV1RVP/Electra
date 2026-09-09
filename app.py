@@ -8,6 +8,7 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -27,6 +28,7 @@ from config import (
     get_profiles,
     save_config,
     save_profiles,
+    get_default_remote_profile,
 )
 from database.db_manager import DBManager
 from drivers.estimator import RuntimeEstimator
@@ -98,28 +100,45 @@ alert_manager = AlertManager(
 )
 
 # Hardware Driver / Receiver Instances
-remote_receiver = RemoteReceiver(name="Remote-1", location="Remote Site")
+remote_receivers: Dict[str, RemoteReceiver] = {}
+for _slot, _prof in profiles_data.items():
+    if _slot not in ("Local-1", "Local-2"):
+        remote_receivers[_slot] = RemoteReceiver(
+            name=_slot,
+            location=_prof.get("location", "Remote Site"),
+            timeout_seconds=30.0,
+        )
 
-# Live state container (Local-1, Local-2, Remote-1)
+# Live state container
 latest_ups_state: Dict[str, UPSData] = {
     "Local-1": UPSData(name="Local-1", source="Auto-Scan", location="Local Port 1"),
     "Local-2": UPSData(name="Local-2", source="Auto-Scan", location="Local Port 2"),
-    "Remote-1": UPSData(name="Remote-1", source="Remote IP", location="Remote Site"),
 }
+for _slot, _prof in profiles_data.items():
+    if _slot not in ("Local-1", "Local-2"):
+        latest_ups_state[_slot] = UPSData(
+            name=_slot,
+            display_name=_prof.get("display_name", _slot),
+            source="Remote IP",
+            location=_prof.get("location", "Remote Site"),
+            connected=False,
+            mode="Offline",
+            error="Awaiting telemetry from remote agent...",
+        )
 
 last_db_log_time = 0.0
 last_cleanup_time = 0.0
 last_logged_telemetry_snapshot: Dict[str, Dict[str, Any]] = {}
 
-# Remote Command Queue for Remote Agent (Piggyback Two-Way Dispatch)
-remote_pending_commands: List[str] = []
+# Remote Command Queue for Remote Agent (Slot-Specific Two-Way Dispatch)
+remote_pending_commands: Dict[str, List[str]] = defaultdict(list)
 
 active_self_tests: Dict[str, Dict[str, Any]] = {}
 last_scheduled_self_test_key: Optional[str] = None
 
 
 def resolve_slot_name(slot_name: str) -> str:
-    """Resolves arbitrary slot names, display names, or aliases into canonical slot keys (Local-1, Local-2, Remote-1)."""
+    """Resolves arbitrary slot names, display names, or aliases into canonical slot keys (Local-1, Local-2, Remote-1, Remote-2, ...)."""
     if not slot_name:
         return "Local-1"
     if slot_name in latest_ups_state:
@@ -133,31 +152,62 @@ def resolve_slot_name(slot_name: str) -> str:
         if p.get("display_name", "").replace(" ", "_") == slot_name:
             return k
     s_clean = slot_name.lower().replace("-", "").replace("_", "").replace(" ", "")
-    for k in ("Local-1", "Local-2", "Remote-1"):
+    all_known = list(profiles.keys()) + list(latest_ups_state.keys())
+    for k in all_known:
         k_clean = k.lower().replace("-", "").replace("_", "").replace(" ", "")
-        if k_clean in s_clean or s_clean in k_clean:
+        if k_clean == s_clean:
             return k
-    if "1" in s_clean or "tec" in s_clean or "primary" in s_clean or "usb1" in s_clean:
+    if "local1" in s_clean or "tec" in s_clean or "primary" in s_clean or "usb1" in s_clean:
         return "Local-1"
-    if "2" in s_clean or "turbo" in s_clean or "secondary" in s_clean or "usb2" in s_clean:
+    if "local2" in s_clean or "turbo" in s_clean or "secondary" in s_clean or "usb2" in s_clean:
         return "Local-2"
-    if "3" in s_clean or "remote" in s_clean or "network" in s_clean:
+    import re
+    m = re.search(r"remote.*?(\d+)", s_clean)
+    if m:
+        return f"Remote-{m.group(1)}"
+    if "remote" in s_clean or "network" in s_clean:
         return "Remote-1"
     return slot_name
 
 
-def queue_remote_command(cmd: str):
-    """Queues command for next remote agent push response."""
-    global remote_pending_commands
-    if cmd not in remote_pending_commands:
-        remote_pending_commands.append(cmd)
-        logger.info(f"Queued remote command: '{cmd}'")
+def queue_remote_command(slot_name: str, cmd: str):
+    """Queues command for next remote agent push response of specific slot."""
+    slot_name = resolve_slot_name(slot_name)
+    if cmd not in remote_pending_commands[slot_name]:
+        remote_pending_commands[slot_name].append(cmd)
+        logger.info(f"Queued remote command for '{slot_name}': '{cmd}'")
 
 
 def get_ups_list_for_response() -> List[Dict[str, Any]]:
     out = []
     latest_st_map = db_manager.get_all_latest_self_tests()
-    for slot in ["Local-1", "Local-2", "Remote-1"]:
+    profiles = get_profiles()
+
+    slots_order = []
+    for l_slot in ("Local-1", "Local-2"):
+        if l_slot in profiles and profiles[l_slot].get("enabled", True):
+            slots_order.append(l_slot)
+        elif l_slot in latest_ups_state:
+            slots_order.append(l_slot)
+
+    remote_slots = set()
+    for k, p in profiles.items():
+        if k not in ("Local-1", "Local-2") and p.get("enabled", True):
+            remote_slots.add(k)
+    for k in latest_ups_state:
+        if k not in ("Local-1", "Local-2"):
+            if profiles.get(k, {}).get("enabled", True):
+                remote_slots.add(k)
+
+    def sort_remote_key(s: str):
+        parts = s.split("-")
+        if len(parts) == 2 and parts[1].isdigit():
+            return (0, int(parts[1]), s)
+        return (1, 0, s)
+
+    slots_order.extend(sorted(remote_slots, key=sort_remote_key))
+
+    for slot in slots_order:
         d = latest_ups_state.get(slot)
         if not d:
             continue
@@ -221,8 +271,8 @@ async def run_self_test_flow(slot_name: str, trigger_type: str = "manual") -> Di
 
     # 2. Issue hardware command (Local vs Remote)
     loop = asyncio.get_running_loop()
-    if slot_name == "Remote-1":
-        queue_remote_command("START_SELF_TEST")
+    if slot_name.startswith("Remote") or slot_name in remote_receivers:
+        queue_remote_command(slot_name, "START_SELF_TEST")
     else:
         await loop.run_in_executor(None, device_manager.start_self_test, slot_name, 10)
 
@@ -231,8 +281,8 @@ async def run_self_test_flow(slot_name: str, trigger_type: str = "manual") -> Di
     while time.time() < deadline:
         await asyncio.sleep(1.0)
         if test_info.get("cancel_requested"):
-            if slot_name == "Remote-1":
-                queue_remote_command("CANCEL_SELF_TEST")
+            if slot_name.startswith("Remote") or slot_name in remote_receivers:
+                queue_remote_command(slot_name, "CANCEL_SELF_TEST")
             else:
                 await loop.run_in_executor(None, device_manager.cancel_self_test, slot_name)
             active_self_tests.pop(slot_name, None)
@@ -413,15 +463,18 @@ async def monitoring_loop():
                 latest_ups_state["Local-2"] = l2_data
                 alert_manager.process_ups_update(l2_data)
 
-            # Read Remote Receiver status (Remote-1)
-            if current_profiles.get("Remote-1", {}).get("enabled", True):
-                remote_raw = remote_receiver.read()
-                remote_data = estimator.update(remote_raw)
-                prof_rem = current_profiles.get("Remote-1", {})
-                remote_data.display_name = prof_rem.get("display_name", "Remote UPS (Network / IP)")
-                remote_data.location = prof_rem.get("location", "Remote Site")
-                latest_ups_state["Remote-1"] = remote_data
-                alert_manager.process_ups_update(remote_data)
+            # Read all Remote Receivers (Remote-1, Remote-2, etc.)
+            for rem_slot, receiver in list(remote_receivers.items()):
+                if current_profiles.get(rem_slot, {}).get("enabled", True):
+                    remote_raw = receiver.read()
+                    remote_data = estimator.update(remote_raw)
+                    prof_rem = current_profiles.get(rem_slot, {})
+                    remote_data.name = rem_slot
+                    remote_data.display_name = prof_rem.get("display_name", f"Remote UPS ({rem_slot})")
+                    if prof_rem.get("location"):
+                        remote_data.location = prof_rem.get("location")
+                    latest_ups_state[rem_slot] = remote_data
+                    alert_manager.process_ups_update(remote_data)
 
             # Check daily report schedule
             all_data = list(latest_ups_state.values())
@@ -610,7 +663,7 @@ async def push_remote_telemetry(
     request: Request,
     x_api_key: Optional[str] = Header(None),
 ):
-    global remote_pending_commands
+    global remote_receivers, remote_pending_commands, profiles_data
     expected_key = config_data.get("remote_api_key", "ups_remote_secret_key_123")
     if expected_key and x_api_key != expected_key:
         raise HTTPException(status_code=401, detail="Invalid X-API-Key header.")
@@ -621,32 +674,76 @@ async def push_remote_telemetry(
         raise HTTPException(status_code=400, detail="Invalid JSON payload.")
 
     client_ip = request.client.host if request.client else "unknown"
-    remote_data = remote_receiver.push_telemetry(body, client_ip=client_ip)
 
-    target_slot = "Remote-1" if "Remote-1" in get_profiles() else body.get("name", "Remote-1")
-    prof_rem = get_profiles().get(target_slot, {})
+    # Determine canonical slot name for this remote agent
+    raw_name = (
+        body.get("slot_name")
+        or body.get("name")
+        or body.get("ups_name")
+        or "Remote-1"
+    )
+    target_slot = resolve_slot_name(raw_name)
+
+    # If slot resolution resolved to a local slot, default to Remote-1
+    if target_slot in ("Local-1", "Local-2"):
+        target_slot = "Remote-1"
+
+    current_profiles = get_profiles()
+
+    # If this is a new remote slot, auto-register it in profiles!
+    if target_slot not in current_profiles:
+        new_profile = get_default_remote_profile(
+            slot_name=target_slot,
+            name=body.get("display_name") or body.get("name"),
+            location=body.get("location"),
+        )
+        if body.get("rated_w"):
+            try:
+                new_profile["rated_w"] = float(body["rated_w"])
+            except Exception:
+                pass
+        current_profiles[target_slot] = new_profile
+        save_profiles(current_profiles)
+        profiles_data = current_profiles
+        estimator.update_profiles(current_profiles)
+        logger.info(f"✨ Auto-registered new remote UPS profile: '{target_slot}' -> {new_profile['display_name']}")
+
+    # Ensure RemoteReceiver instance exists for this slot
+    if target_slot not in remote_receivers:
+        prof_entry = current_profiles.get(target_slot, {})
+        remote_receivers[target_slot] = RemoteReceiver(
+            name=target_slot,
+            location=prof_entry.get("location", body.get("location", "Remote Site")),
+            timeout_seconds=30.0,
+        )
+
+    receiver = remote_receivers[target_slot]
+    remote_data = receiver.push_telemetry(body, client_ip=client_ip)
+
+    prof_rem = current_profiles.get(target_slot, {})
     remote_data.name = target_slot
-    remote_data.display_name = prof_rem.get("display_name", "Remote UPS (Network / IP)")
+    remote_data.display_name = prof_rem.get("display_name", f"Remote UPS ({target_slot})")
     if prof_rem.get("location"):
         remote_data.location = prof_rem.get("location")
 
     # Run estimator with canonical profile slot
     remote_data = estimator.update(remote_data)
-    
-    # Check if Remote-1 is currently undergoing a self-test
-    if target_slot in active_self_tests or "Remote-1" in active_self_tests:
+
+    # Check if this slot is currently undergoing a self-test
+    if target_slot in active_self_tests:
         remote_data.test_active = True
 
     latest_ups_state[target_slot] = remote_data
     alert_manager.process_ups_update(remote_data)
 
-    # Pop pending commands for this remote agent
-    cmds_to_send = list(remote_pending_commands)
-    remote_pending_commands.clear()
+    # Pop pending commands specifically for this remote agent
+    cmds_to_send = list(remote_pending_commands.get(target_slot, []))
+    remote_pending_commands[target_slot].clear()
 
     return {
         "status": "success",
         "received_at": time.time(),
+        "slot": target_slot,
         "ups": remote_data.display_name or remote_data.name,
         "pending_commands": cmds_to_send,
     }
@@ -689,14 +786,60 @@ async def save_settings_endpoint(request: Request):
         profiles_data = get_profiles()
         estimator.update_profiles(profiles_data)
 
-        # Immediately update in-memory state display_name and location
+        # Synchronize remote_receivers and latest_ups_state with profiles_data
         for k, p in profiles_data.items():
             if k in latest_ups_state:
                 latest_ups_state[k].display_name = p.get("display_name", k)
                 if p.get("location"):
                     latest_ups_state[k].location = p.get("location")
+            if k not in ("Local-1", "Local-2") and k not in remote_receivers:
+                remote_receivers[k] = RemoteReceiver(
+                    name=k,
+                    location=p.get("location", "Remote Site"),
+                    timeout_seconds=30.0,
+                )
+                if k not in latest_ups_state:
+                    latest_ups_state[k] = UPSData(
+                        name=k,
+                        display_name=p.get("display_name", k),
+                        source="Remote IP",
+                        location=p.get("location", "Remote Site"),
+                        connected=False,
+                        mode="Offline",
+                        error="Awaiting telemetry from remote agent...",
+                    )
+
+        # Clean up removed remote slots
+        removed_slots = [
+            slot for slot in list(remote_receivers.keys())
+            if slot not in profiles_data
+        ]
+        for rem in removed_slots:
+            remote_receivers.pop(rem, None)
+            latest_ups_state.pop(rem, None)
+            remote_pending_commands.pop(rem, None)
+            logger.info(f"Removed decommissioned remote slot: '{rem}'")
 
     return {"status": "success", "message": "Settings updated successfully."}
+
+
+@app.delete("/api/profiles/{slot_name}")
+def delete_profile_endpoint(slot_name: str):
+    if slot_name in ("Local-1", "Local-2"):
+        raise HTTPException(status_code=400, detail="Cannot delete primary local slots.")
+    current_profiles = get_profiles()
+    if slot_name not in current_profiles:
+        raise HTTPException(status_code=404, detail=f"Slot '{slot_name}' not found.")
+    del current_profiles[slot_name]
+    save_profiles(current_profiles)
+    global profiles_data
+    profiles_data = current_profiles
+    estimator.update_profiles(profiles_data)
+    remote_receivers.pop(slot_name, None)
+    latest_ups_state.pop(slot_name, None)
+    remote_pending_commands.pop(slot_name, None)
+    logger.info(f"Deleted remote profile: '{slot_name}'")
+    return {"status": "success", "message": f"Slot '{slot_name}' deleted successfully."}
 
 
 @app.post("/api/settings/language")
@@ -765,8 +908,8 @@ def reset_learning():
 @app.post("/api/ups/{slot_name}/buzzer/toggle")
 async def toggle_ups_buzzer(slot_name: str):
     slot_name = resolve_slot_name(slot_name)
-    if slot_name == "Remote-1":
-        queue_remote_command("TOGGLE_BUZZER")
+    if slot_name.startswith("Remote") or slot_name in remote_receivers:
+        queue_remote_command(slot_name, "TOGGLE_BUZZER")
         data = latest_ups_state.get(slot_name)
         disp_name = (data.display_name or data.name or slot_name) if data else slot_name
         new_state = not (data.beeper_on if data and data.beeper_on is not None else False)
@@ -777,7 +920,7 @@ async def toggle_ups_buzzer(slot_name: str):
             "status": "success",
             "slot_name": slot_name,
             "beeper_on": new_state,
-            "message": "Buzzer toggle command queued for Remote UPS.",
+            "message": f"Buzzer toggle command queued for Remote UPS ({slot_name}).",
         }
 
     loop = asyncio.get_running_loop()
@@ -828,8 +971,11 @@ async def cancel_ups_self_test(slot_name: str):
     canonical_slot = resolve_slot_name(slot_name)
     if canonical_slot in active_self_tests:
         active_self_tests[canonical_slot]["cancel_requested"] = True
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, device_manager.cancel_self_test, canonical_slot)
+        if canonical_slot.startswith("Remote") or canonical_slot in remote_receivers:
+            queue_remote_command(canonical_slot, "CANCEL_SELF_TEST")
+        else:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, device_manager.cancel_self_test, canonical_slot)
         return {"status": "success", "message": "Cancellation requested for self-test."}
     return {"status": "error", "message": "No active self-test to cancel."}
 

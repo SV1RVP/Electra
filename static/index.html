@@ -91,8 +91,8 @@
         <div class="summary-icon">🛡️</div>
         <div class="summary-info">
           <h4 data-i18n="active_units">ΕΝΕΡΓΑ UPS</h4>
-          <div class="value" id="summaryActiveUnits">0 / 3</div>
-          <div class="sub-text" data-i18n="sub_active_desc">2 Local + 1 Remote</div>
+          <div class="value" id="summaryActiveUnits">0 / 2</div>
+          <div class="sub-text" id="summaryActiveDesc" data-i18n="sub_active_desc">2 Local</div>
         </div>
       </div>
     </section>
@@ -131,10 +131,7 @@
                 <span class="btn-icon">🔌</span>
                 <span class="btn-text" id="chartLabelLocal2">Secondary UPS (USB 2)</span>
               </button>
-              <button type="button" class="segmented-btn chart-ups-btn" data-ups="Remote-1" title="Remote UPS (Network / IP)">
-                <span class="btn-icon">📡</span>
-                <span class="btn-text" id="chartLabelRemote">Remote UPS (IP)</span>
-              </button>
+              <!-- Dynamic Remote UPS buttons injected via app.js -->
             </div>
           </div>
 
@@ -488,29 +485,28 @@
                 <label class="form-label" data-i18n="lbl_rated_w">Ονομαστική Ισχύς (Watts):</label>
                 <input type="number" id="local2RatedWInput" class="form-input" placeholder="1200">
               </div>
+          </div>
+
+          <!-- DYNAMIC REMOTE UPS PROFILES SECTION -->
+          <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-glass);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <h5 style="margin: 0; font-size: 0.95rem; color: var(--accent-magenta); display: flex; align-items: center; gap: 6px;">
+                  <span>📡</span>
+                  <span data-i18n="sec_remote_profiles">Απομακρυσμένα UPS (Remote Network / IP)</span>
+                </h5>
+                <p style="margin: 2px 0 0 0; font-size: 0.75rem; color: var(--text-dim);" data-i18n="desc_remote_profiles">
+                  Αυτόματη προσθήκη κατά τη λήψη τηλεμετρίας ή χειροκίνητη προ-διαμόρφωση για απομακρυσμένους agents.
+                </p>
+              </div>
+              <button type="button" class="btn-icon" id="btnAddRemoteProfile" style="font-size: 0.8rem; padding: 6px 14px; border-color: rgba(255, 0, 127, 0.4); color: var(--accent-magenta);">
+                <span>➕</span>
+                <span data-i18n="btn_add_remote_profile">Προσθήκη Remote Profile</span>
+              </button>
             </div>
 
-            <!-- UPS 3: Remote-1 (Network / IP) -->
-            <div class="ups-profile-config-card">
-              <div class="profile-card-header">
-                <span class="profile-tag" data-i18n="tag_ups3">UPS 3 (Remote Network / IP)</span>
-                <label class="profile-enable-switch">
-                  <input type="checkbox" id="remoteProfileEnabled" checked>
-                  <span data-i18n="lbl_enabled">Ενεργό</span>
-                </label>
-              </div>
-              <div class="form-group">
-                <label class="form-label" data-i18n="lbl_display_name">Όνομα Εμφάνισης (Display Name):</label>
-                <input type="text" id="remoteDisplayNameInput" class="form-input" placeholder="e.g. Remote UPS (Network / IP)">
-              </div>
-              <div class="form-group">
-                <label class="form-label" data-i18n="lbl_location">Τοποθεσία (Location):</label>
-                <input type="text" id="remoteLocationInput" class="form-input" placeholder="e.g. Remote Site">
-              </div>
-              <div class="form-group">
-                <label class="form-label" data-i18n="lbl_rated_w">Ονομαστική Ισχύς (Watts):</label>
-                <input type="number" id="remoteRatedWInput" class="form-input" placeholder="1200">
-              </div>
+            <div class="ups-profiles-settings-grid" id="remoteProfilesSettingsGrid">
+              <!-- Dynamic Remote Profile Cards injected via app.js -->
             </div>
           </div>
         </div>

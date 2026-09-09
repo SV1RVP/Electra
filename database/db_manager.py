@@ -215,6 +215,11 @@ class DBManager:
                         target_names.append(dbn)
                     elif ("remote" in u_clean or "network" in u_clean or "site" in u_clean or "ip" in u_clean) and \
                          ("remote" in dbn_clean or "network" in dbn_clean or "site" in dbn_clean or "ip" in dbn_clean):
+                        import re
+                        m_u = re.findall(r"\d+", u_clean)
+                        m_dbn = re.findall(r"\d+", dbn_clean)
+                        if m_u and m_dbn and m_u != m_dbn:
+                            continue
                         target_names.append(dbn)
                 names = target_names if target_names else [ups_name]
             else:

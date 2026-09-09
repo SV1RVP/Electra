@@ -108,7 +108,7 @@ const I18N = {
     chk_db_outage_fast_log: "🚨 Υψηλή ανάλυση καταγραφής (ανά 1 sec) κατά τη διάρκεια διακοπής ρεύματος (Μπαταρία)",
 
     sec_profiles: "⚡ Προφίλ, Ονόματα & Τοποθεσίες UPS",
-    desc_profiles: "Ορίστε τα ονόματα εμφάνισης και τις τοποθεσίες των 3 UPS. Οι θύρες USB κλειδώνονται μόνιμα ώστε κάθε UPS να αντιστοιχεί σταθερά στο ίδιο Slot.",
+    desc_profiles: "Ορίστε τα ονόματα εμφάνισης και τις τοποθεσίες των συνδεδεμένων UPS. Οι θύρες USB κλειδώνονται μόνιμα ώστε κάθε UPS να αντιστοιχεί σταθερά στο ίδιο Slot.",
     tag_ups1: "UPS 1 (Local USB 1)",
     tag_ups2: "UPS 2 (Local USB 2)",
     tag_ups3: "UPS 3 (Remote Network / IP)",
@@ -116,6 +116,12 @@ const I18N = {
     lbl_display_name: "Όνομα Εμφάνισης (Display Name):",
     lbl_location: "Τοποθεσία (Location):",
     lbl_rated_w: "Ονομαστική Ισχύς (Watts):",
+    sec_remote_profiles: "Απομακρυσμένα UPS (Remote Network / IP)",
+    desc_remote_profiles: "Αυτόματη προσθήκη κατά τη λήψη τηλεμετρίας ή χειροκίνητη προ-διαμόρφωση για απομακρυσμένους agents.",
+    btn_add_remote_profile: "Προσθήκη Remote Profile",
+    btn_delete_remote: "🗑️ Διαγραφή",
+    confirm_delete_remote: "Είστε βέβαιοι για τη διαγραφή του προφίλ {slot};",
+    no_remote_profiles: "Δεν έχουν προστεθεί απομακρυσμένα UPS ακόμα. Μόλις συνδεθεί κάποιος remote agent, θα εμφανιστεί αυτόματα εδώ!",
 
     sec_remote_agent: "🌐 Απομακρυσμένο UPS (Remote Agent over IP)",
     lbl_api_key: "Secret API Key για Push Τηλεμετρίας:",
@@ -275,7 +281,7 @@ const I18N = {
     chk_db_outage_fast_log: "🚨 High-resolution logging (every 1 sec) during power outages (Battery mode)",
 
     sec_profiles: "⚡ UPS Profiles, Names & Locations",
-    desc_profiles: "Set display names and locations for all 3 UPS slots. USB ports are permanently locked to ensure consistent hardware mapping.",
+    desc_profiles: "Set display names and locations for connected UPS slots. USB ports are permanently locked to ensure consistent hardware mapping.",
     tag_ups1: "UPS 1 (Local USB 1)",
     tag_ups2: "UPS 2 (Local USB 2)",
     tag_ups3: "UPS 3 (Remote Network / IP)",
@@ -283,6 +289,12 @@ const I18N = {
     lbl_display_name: "Display Name:",
     lbl_location: "Location:",
     lbl_rated_w: "Rated Power (Watts):",
+    sec_remote_profiles: "Remote UPS Units (Network / IP)",
+    desc_remote_profiles: "Auto-added upon receiving telemetry or pre-configured for remote agents.",
+    btn_add_remote_profile: "Add Remote Profile",
+    btn_delete_remote: "🗑️ Delete",
+    confirm_delete_remote: "Are you sure you want to delete profile {slot}?",
+    no_remote_profiles: "No remote UPS profiles yet. Once a remote agent connects, it will automatically appear here!",
 
     sec_remote_agent: "🌐 Remote UPS (Remote Agent over IP)",
     lbl_api_key: "Secret API Key for Telemetry Push:",
@@ -497,6 +509,8 @@ function initEventListeners() {
   if (testViberBtn) testViberBtn.addEventListener('click', testViber);
   if (dailyReportBtn) dailyReportBtn.addEventListener('click', triggerDailyReport);
   if (btnRescan) btnRescan.addEventListener('click', rescanDevices);
+  const btnAddRemote = document.getElementById('btnAddRemoteProfile');
+  if (btnAddRemote) btnAddRemote.addEventListener('click', handleAddRemoteProfile);
 
   const retentionSelect = document.getElementById('dbRetentionSelect');
   if (retentionSelect) {
@@ -568,6 +582,8 @@ function initEventListeners() {
 
 function updateChartTabs(profMap) {
   if (!profMap) return;
+  const chartSeg = document.getElementById('chartUpsSegmented');
+
   for (const [slot, info] of Object.entries(profMap)) {
     const disp = info.display_name || slot;
     if (chartManager) {
@@ -580,9 +596,27 @@ function updateChartTabs(profMap) {
     } else if (sLower.includes('local-2') || sLower.includes('turbo') || sLower.includes('secondary') || sLower.includes('usb 2')) {
       const lbl = document.getElementById('chartLabelLocal2');
       if (lbl) lbl.textContent = disp;
-    } else if (sLower.includes('remote') || sLower.includes('3') || sLower.includes('network') || sLower.includes('ip')) {
-      const lbl = document.getElementById('chartLabelRemote');
-      if (lbl) lbl.textContent = disp;
+    } else if (chartSeg) {
+      // Dynamic remote buttons
+      let btn = chartSeg.querySelector(`.chart-ups-btn[data-ups="${slot}"]`);
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'segmented-btn chart-ups-btn';
+        btn.setAttribute('data-ups', slot);
+        btn.title = disp;
+        btn.innerHTML = `<span class="btn-icon">📡</span><span class="btn-text">${escapeHtml(disp)}</span>`;
+        btn.addEventListener('click', () => {
+          chartSeg.querySelectorAll('.chart-ups-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          if (chartManager) chartManager.setUPS(slot);
+        });
+        chartSeg.appendChild(btn);
+      } else {
+        const txt = btn.querySelector('.btn-text');
+        if (txt) txt.textContent = disp;
+        btn.title = disp;
+      }
     }
   }
 }
@@ -633,7 +667,7 @@ function updateDashboard(payload) {
 
   const profMap = {};
   payload.ups_list.forEach((u, idx) => {
-    const key = u.slot_name || u.name || (idx === 0 ? 'Local-1' : (idx === 1 ? 'Local-2' : 'Remote-1'));
+    const key = u.slot_name || u.name || (idx === 0 ? 'Local-1' : (idx === 1 ? 'Local-2' : `Remote-${idx - 1}`));
     profMap[key] = { display_name: u.display_name || u.name, location: u.location };
   });
   updateChartTabs(profMap);
@@ -642,10 +676,21 @@ function updateDashboard(payload) {
   const totalWattsEl = document.getElementById('summaryTotalWatts');
   const avgLoadEl = document.getElementById('summaryAvgLoad');
   const activeUnitsEl = document.getElementById('summaryActiveUnits');
+  const activeDescEl = document.getElementById('summaryActiveDesc');
 
   if (totalWattsEl) totalWattsEl.textContent = `${summary.total_watts || 0} W`;
   if (avgLoadEl) avgLoadEl.textContent = `${summary.avg_load_pct || 0}%`;
-  if (activeUnitsEl) activeUnitsEl.textContent = `${summary.online_ups || 0} / ${summary.total_ups || 3}`;
+  if (activeUnitsEl) activeUnitsEl.textContent = `${summary.online_ups || 0} / ${summary.total_ups || payload.ups_list.length || 2}`;
+
+  if (activeDescEl) {
+    const localCount = payload.ups_list.filter(u => (u.slot_name || '').startsWith('Local')).length;
+    const remoteCount = payload.ups_list.filter(u => !(u.slot_name || '').startsWith('Local')).length;
+    if (currentLang === 'el') {
+      activeDescEl.textContent = `${localCount} Τοπικά` + (remoteCount > 0 ? ` + ${remoteCount} Απομακρυσμέν${remoteCount === 1 ? 'ο' : 'α'}` : '');
+    } else {
+      activeDescEl.textContent = `${localCount} Local` + (remoteCount > 0 ? ` + ${remoteCount} Remote` : '');
+    }
+  }
 
   const gridStatusEl = document.getElementById('summaryGridStatus');
   const gridCardEl = document.getElementById('summaryGridCard');
@@ -665,11 +710,13 @@ function updateDashboard(payload) {
 
   const container = document.getElementById('upsGridContainer');
   if (container) {
+    const presentSafeIds = new Set();
     payload.ups_list.forEach((ups, idx) => {
       if (!ups.slot_name) {
-        ups.slot_name = idx === 0 ? 'Local-1' : idx === 1 ? 'Local-2' : 'Remote-1';
+        ups.slot_name = idx === 0 ? 'Local-1' : idx === 1 ? 'Local-2' : `Remote-${idx - 1}`;
       }
       const safeId = (ups.slot_name || ups.name || `ups-${idx}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+      presentSafeIds.add(`ups-card-${safeId}`);
       let card = document.getElementById(`ups-card-${safeId}`);
       if (!card) {
         card = createUPSCardElement(ups, safeId);
@@ -677,6 +724,13 @@ function updateDashboard(payload) {
       }
       updateUPSCard(card, ups);
       checkAudioAlerts(ups);
+    });
+
+    // Clean up cards that no longer exist in payload.ups_list
+    Array.from(container.children).forEach(child => {
+      if (child.id && child.id.startsWith('ups-card-') && !presentSafeIds.has(child.id)) {
+        child.remove();
+      }
     });
   }
 }
@@ -1230,7 +1284,6 @@ async function openSettingsModal() {
 
     const l1Prof = profiles['Local-1'] || profiles.TEC || {};
     const l2Prof = profiles['Local-2'] || profiles['Turbo-X'] || {};
-    const remoteProf = profiles['Remote-1'] || profiles['Remote-UPS'] || {};
 
     const l1Badge = document.getElementById('local1BindingBadge');
     if (l1Badge) l1Badge.textContent = formatBindingBadge(l1Prof);
@@ -1248,10 +1301,8 @@ async function openSettingsModal() {
     setVal('local2RatedWInput', l2Prof.rated_w || 1200);
     setChk('local2ProfileEnabled', l2Prof.enabled !== false);
 
-    setVal('remoteDisplayNameInput', remoteProf.display_name || 'Remote UPS (Network / IP)');
-    setVal('remoteLocationInput', remoteProf.location || 'Remote Site');
-    setVal('remoteRatedWInput', remoteProf.rated_w || 1200);
-    setChk('remoteProfileEnabled', remoteProf.enabled !== false);
+    // Dynamic Remote Profiles Rendering
+    renderRemoteProfilesSettings(profiles);
 
     setVal('remoteApiKeyInput', cfg.remote_api_key || '');
 
@@ -1259,6 +1310,113 @@ async function openSettingsModal() {
   } catch (e) {
     showToast(t('toast_save_err'), 'error');
   }
+}
+
+function renderRemoteProfilesSettings(profiles) {
+  const grid = document.getElementById('remoteProfilesSettingsGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  const remoteKeys = Object.keys(profiles || {}).filter(k => k !== 'Local-1' && k !== 'Local-2');
+
+  if (remoteKeys.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 16px; text-align: center; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-glass); border-radius: 8px; color: var(--text-muted); font-size: 0.84rem;">
+        <span style="font-size: 1.3rem; display: block; margin-bottom: 6px;">📡</span>
+        ${t('no_remote_profiles')}
+      </div>
+    `;
+    return;
+  }
+
+  // Sort remote keys naturally
+  remoteKeys.sort((a, b) => {
+    const na = parseInt((a.match(/\d+/) || [999])[0], 10);
+    const nb = parseInt((b.match(/\d+/) || [999])[0], 10);
+    return na - nb;
+  });
+
+  remoteKeys.forEach(slot => {
+    const p = profiles[slot] || {};
+    const card = document.createElement('div');
+    card.className = 'ups-profile-config-card remote-profile-card';
+    card.setAttribute('data-remote-slot', slot);
+
+    const safeSlot = slot.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const num = (slot.match(/\d+/) || [''])[0];
+    const tagText = `Remote UPS ${num || slot} (Network / IP)`;
+
+    card.innerHTML = `
+      <div class="profile-card-header">
+        <span class="profile-tag" style="background: rgba(255, 0, 127, 0.12); color: var(--accent-magenta); border-color: rgba(255, 0, 127, 0.3);">
+          📡 ${escapeHtml(tagText)} [${escapeHtml(slot)}]
+        </span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" class="btn-delete-remote" data-slot="${escapeHtml(slot)}" title="${t('btn_delete_remote')}" style="background: transparent; border: 1px solid rgba(255, 23, 68, 0.35); color: #ff1744; border-radius: 6px; padding: 3px 8px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s ease;">
+            ${t('btn_delete_remote')}
+          </button>
+          <label class="profile-enable-switch">
+            <input type="checkbox" id="remoteEnabled_${safeSlot}" ${p.enabled !== false ? 'checked' : ''}>
+            <span data-i18n="lbl_enabled">${t('lbl_enabled')}</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">${t('lbl_display_name')}</label>
+        <input type="text" id="remoteDisplayName_${safeSlot}" class="form-input" value="${escapeHtml(p.display_name || `Remote UPS ${num || slot} (Network / IP)`)}" placeholder="e.g. Remote UPS ${num || slot} (Network / IP)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">${t('lbl_location')}</label>
+        <input type="text" id="remoteLocation_${safeSlot}" class="form-input" value="${escapeHtml(p.location || 'Remote Site')}" placeholder="e.g. Remote Site">
+      </div>
+      <div class="form-group">
+        <label class="form-label">${t('lbl_rated_w')}</label>
+        <input type="number" id="remoteRatedW_${safeSlot}" class="form-input" value="${escapeHtml(p.rated_w || 1200)}" placeholder="1200">
+      </div>
+    `;
+
+    const delBtn = card.querySelector('.btn-delete-remote');
+    if (delBtn) {
+      delBtn.addEventListener('click', async () => {
+        const confirmMsg = (t('confirm_delete_remote') || 'Are you sure you want to delete {slot}?').replace('{slot}', slot);
+        if (confirm(confirmMsg)) {
+          try {
+            await fetch(`/api/profiles/${encodeURIComponent(slot)}`, { method: 'DELETE' });
+          } catch (e) {}
+          delete currentProfilesCache[slot];
+          card.remove();
+          renderRemoteProfilesSettings(currentProfilesCache);
+          updateChartSelectOptions(currentProfilesCache);
+          fetchInitialData();
+          showToast(currentLang === 'el' ? `Το προφίλ ${slot} διαγράφηκε.` : `Profile ${slot} deleted.`, 'info');
+        }
+      });
+    }
+
+    grid.appendChild(card);
+  });
+}
+
+function handleAddRemoteProfile() {
+  const remoteKeys = Object.keys(currentProfilesCache || {}).filter(k => k !== 'Local-1' && k !== 'Local-2');
+  let nextNum = 1;
+  while (remoteKeys.includes(`Remote-${nextNum}`)) {
+    nextNum++;
+  }
+  const newSlot = `Remote-${nextNum}`;
+  currentProfilesCache[newSlot] = {
+    display_name: `Remote UPS ${nextNum} (Network / IP)`,
+    location: `Remote Site ${nextNum}`,
+    rated_w: 1200,
+    bank_v: 24,
+    battery_ah: 9,
+    inverter_efficiency: 0.85,
+    peukert_exponent: 1.15,
+    enabled: true,
+    is_remote: true,
+  };
+  renderRemoteProfilesSettings(currentProfilesCache);
+  showToast(currentLang === 'el' ? `Προστέθηκε νέο προφίλ: ${newSlot}. Πατήστε «Αποθήκευση».` : `Added new profile: ${newSlot}. Click 'Save'.`, 'info');
 }
 
 function closeSettingsModal() {
@@ -1331,11 +1489,6 @@ async function saveSettings() {
   const l2RatedW = parseFloat(getVal('local2RatedWInput', '1200')) || 1200;
   const l2Enabled = getChk('local2ProfileEnabled');
 
-  const remoteDisplayName = getVal('remoteDisplayNameInput', 'Remote UPS (Network / IP)');
-  const remoteLocation = getVal('remoteLocationInput', 'Remote Site');
-  const remoteRatedW = parseFloat(getVal('remoteRatedWInput', '1200')) || 1200;
-  const remoteEnabled = getChk('remoteProfileEnabled');
-
   const outageRepeatSec = parseInt(getVal('outageRepeatInput', '60'), 10) || 60;
 
   const selfTestScheduleEnabled = getChk('chkSelfTestScheduleEnabled');
@@ -1345,6 +1498,45 @@ async function saveSettings() {
   const selfTestDayOfMonth = parseInt(getVal('selfTestDayOfMonthInput', '1'), 10) || 1;
   const selfTestViberNotify = getChk('chkSelfTestViberNotify');
   const selfTestAlert = getChk('chkSelfTestAlert');
+
+  // Collect all remote profile cards
+  const remoteCards = document.querySelectorAll('.remote-profile-card');
+  const profilesPayload = {
+    'Local-1': {
+      ...((currentProfilesCache && currentProfilesCache['Local-1']) || {}),
+      display_name: l1DisplayName,
+      location: l1Location,
+      rated_w: l1RatedW,
+      enabled: l1Enabled,
+    },
+    'Local-2': {
+      ...((currentProfilesCache && currentProfilesCache['Local-2']) || {}),
+      display_name: l2DisplayName,
+      location: l2Location,
+      rated_w: l2RatedW,
+      enabled: l2Enabled,
+    },
+  };
+
+  remoteCards.forEach(card => {
+    const slot = card.getAttribute('data-remote-slot');
+    if (!slot) return;
+    const safeSlot = slot.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const num = (slot.match(/\d+/) || [''])[0];
+    const disp = getVal(`remoteDisplayName_${safeSlot}`, `Remote UPS ${num || slot} (Network / IP)`);
+    const loc = getVal(`remoteLocation_${safeSlot}`, 'Remote Site');
+    const ratedW = parseFloat(getVal(`remoteRatedW_${safeSlot}`, '1200')) || 1200;
+    const enabled = getChk(`remoteEnabled_${safeSlot}`);
+
+    profilesPayload[slot] = {
+      ...((currentProfilesCache && currentProfilesCache[slot]) || {}),
+      display_name: disp,
+      location: loc,
+      rated_w: ratedW,
+      enabled: enabled,
+      is_remote: true,
+    };
+  });
 
   const payload = {
     config: {
@@ -1387,29 +1579,7 @@ async function saveSettings() {
         language: currentLang,
       }
     },
-    profiles: {
-      'Local-1': {
-        ...((currentProfilesCache && currentProfilesCache['Local-1']) || {}),
-        display_name: l1DisplayName,
-        location: l1Location,
-        rated_w: l1RatedW,
-        enabled: l1Enabled,
-      },
-      'Local-2': {
-        ...((currentProfilesCache && currentProfilesCache['Local-2']) || {}),
-        display_name: l2DisplayName,
-        location: l2Location,
-        rated_w: l2RatedW,
-        enabled: l2Enabled,
-      },
-      'Remote-1': {
-        ...((currentProfilesCache && currentProfilesCache['Remote-1']) || {}),
-        display_name: remoteDisplayName,
-        location: remoteLocation,
-        rated_w: remoteRatedW,
-        enabled: remoteEnabled,
-      },
-    }
+    profiles: profilesPayload
   };
 
   try {
@@ -1607,32 +1777,51 @@ class UPSChartManager {
     const sel = this.selectedUPS.toLowerCase().replace(/[-_ ]/g, '');
     const name = (upsName || '').toLowerCase().replace(/[-_ ]/g, '');
     
-    if (name === sel || name.includes(sel) || sel.includes(name)) return true;
-    
-    if ((sel.includes('local1') || sel.includes('primary') || sel.includes('usb1') || sel.includes('tec') || sel === '1') &&
-        (name.includes('local1') || name.includes('primary') || name.includes('usb1') || name.includes('tec') || name === '1')) {
+    if (name === sel) return true;
+
+    // Isolate by number if both have numbers (e.g. Remote-1 vs Remote-2)
+    const selNum = (sel.match(/\d+/) || [])[0];
+    const nameNum = (name.match(/\d+/) || [])[0];
+    if (selNum && nameNum && selNum !== nameNum) {
+      return false;
+    }
+
+    if ((sel.includes('local1') || sel.includes('primary') || sel.includes('usb1') || sel.includes('tec')) &&
+        (name.includes('local1') || name.includes('primary') || name.includes('usb1') || name.includes('tec'))) {
       return true;
     }
-    if ((sel.includes('local2') || sel.includes('secondary') || sel.includes('usb2') || sel.includes('turbo') || sel === '2') &&
-        (name.includes('local2') || name.includes('secondary') || name.includes('usb2') || name.includes('turbo') || name === '2')) {
+    if ((sel.includes('local2') || sel.includes('secondary') || sel.includes('usb2') || sel.includes('turbo')) &&
+        (name.includes('local2') || name.includes('secondary') || name.includes('usb2') || name.includes('turbo'))) {
       return true;
     }
-    if ((sel.includes('remote') || sel.includes('network') || sel.includes('ip') || sel.includes('site') || sel === '3') &&
-        (name.includes('remote') || name.includes('network') || name.includes('ip') || name.includes('site') || name === '3')) {
+    if (sel.includes('remote') && name.includes('remote')) {
+      if (selNum && nameNum) return selNum === nameNum;
       return true;
     }
-    return false;
+    return name.includes(sel) || sel.includes(name);
   }
 
   getSlotColor(upsName) {
     const k = String(upsName || '').toLowerCase();
-    if (k.includes('local-1') || k.includes('primary') || k.includes('tec') || k.includes('usb 1') || k.includes('1')) {
+    if (k.includes('local-1') || k.includes('primary') || k.includes('tec') || k.includes('usb 1')) {
       return { main: '#00f0ff', fill: 'rgba(0, 240, 255, 0.12)' };
     }
-    if (k.includes('local-2') || k.includes('secondary') || k.includes('turbo') || k.includes('usb 2') || k.includes('2')) {
+    if (k.includes('local-2') || k.includes('secondary') || k.includes('turbo') || k.includes('usb 2')) {
       return { main: '#00e676', fill: 'rgba(0, 230, 118, 0.12)' };
     }
-    if (k.includes('remote') || k.includes('ip') || k.includes('network') || k.includes('site') || k.includes('3')) {
+    if (k.includes('remote-1') || k.includes('remote 1')) {
+      return { main: '#ff007f', fill: 'rgba(255, 0, 127, 0.12)' };
+    }
+    if (k.includes('remote-2') || k.includes('remote 2')) {
+      return { main: '#b388ff', fill: 'rgba(179, 136, 255, 0.12)' };
+    }
+    if (k.includes('remote-3') || k.includes('remote 3')) {
+      return { main: '#ffab00', fill: 'rgba(255, 171, 0, 0.12)' };
+    }
+    if (k.includes('remote-4') || k.includes('remote 4')) {
+      return { main: '#ff5252', fill: 'rgba(255, 82, 82, 0.12)' };
+    }
+    if (k.includes('remote')) {
       return { main: '#ff007f', fill: 'rgba(255, 0, 127, 0.12)' };
     }
     return { main: '#ffab00', fill: 'rgba(255, 171, 0, 0.12)' };
@@ -2021,7 +2210,9 @@ async function handleRunAllSelfTest() {
   if (btn) btn.disabled = true;
   showToast(currentLang === 'el' ? 'Έναρξη Self-Test σε όλα τα ενεργά UPS...' : 'Triggering Self-Test on all active units...', 'info');
 
-  const slots = ['Local-1', 'Local-2', 'Remote-1'];
+  const slots = currentProfilesCache && Object.keys(currentProfilesCache).length > 0
+    ? Object.keys(currentProfilesCache).filter(k => currentProfilesCache[k]?.enabled !== false)
+    : ['Local-1', 'Local-2'];
   for (const s of slots) {
     try {
       await fetch(`/api/ups/${encodeURIComponent(s)}/self-test`, { method: 'POST' });

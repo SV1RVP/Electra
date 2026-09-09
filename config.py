@@ -81,17 +81,29 @@ DEFAULT_PROFILES: Dict[str, Dict[str, Any]] = {
         "peukert_exponent": 1.15,
         "enabled": True,
     },
-    "Remote-1": {
-        "display_name": "Remote UPS (Network / IP)",
-        "location": "Remote Site",
+}
+
+
+def get_default_remote_profile(
+    slot_name: str,
+    name: Optional[str] = None,
+    location: Optional[str] = None,
+) -> Dict[str, Any]:
+    parts = slot_name.split("-")
+    num_suffix = f" {parts[1]}" if len(parts) > 1 and parts[1].isdigit() else ""
+    disp = name or f"Remote UPS{num_suffix} (Network / IP)"
+    loc = location or f"Remote Site{num_suffix}"
+    return {
+        "display_name": disp,
+        "location": loc,
         "rated_w": 1200.0,
         "bank_v": 24.0,
         "battery_ah": 9.0,
         "inverter_efficiency": 0.85,
         "peukert_exponent": 1.15,
         "enabled": True,
-    },
-}
+        "is_remote": True,
+    }
 
 
 def load_json_file(path: Path, default_data: Any) -> Any:
