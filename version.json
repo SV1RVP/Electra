@@ -2,7 +2,7 @@
   "app_name": "Electra",
   "name": "Electra - UPS Status Central Monitor",
   "subtitle": "UPS Status Central Monitor",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "release_date": "2026-09-30",
   "author": "Alexandros - Ermis Tsourapas (SV1RVP)",
   "creator": "Alexandros - Ermis Tsourapas (SV1RVP)",
@@ -11,6 +11,8 @@
   "repository": "https://github.com/SV1RVP/Electra",
   "download_url": "https://github.com/SV1RVP/Electra/archive/refs/heads/main.zip",
   "changelog": [
+    "Fixed MQTT connection authorization handling and added dynamic paho-mqtt loader",
+    "Added live test connection feedback without modal dismissal and deep merge for settings",
     "Added native Home Assistant MQTT Discovery with dynamic multi-UPS telemetry support for all local and network UPS units",
     "Added full MQTT configuration, real-time connectivity status badges, and discovery testing in the WebUI Settings modal",
     "Added live Power (Watts) and Current (Amperes) telemetry metrics to each UPS card in the WebUI with balanced 4-column electrical layout",

@@ -21,10 +21,38 @@ try:
 except (ImportError, AttributeError):
     try:
         import paho.mqtt.client as mqtt
+        CallbackAPIVersion = None
         PAHO_V2 = False
     except ImportError:
         mqtt = None
+        CallbackAPIVersion = None
         PAHO_V2 = False
+
+
+def _ensure_paho() -> bool:
+    """Dynamically re-attempts importing paho-mqtt if it was not available at initial load."""
+    global mqtt, CallbackAPIVersion, PAHO_V2
+    if mqtt is not None:
+        return True
+    try:
+        import paho.mqtt.client as _mqtt
+        from paho.mqtt.enums import CallbackAPIVersion as _cb
+        mqtt = _mqtt
+        CallbackAPIVersion = _cb
+        PAHO_V2 = True
+        return True
+    except (ImportError, AttributeError):
+        try:
+            import paho.mqtt.client as _mqtt
+            mqtt = _mqtt
+            CallbackAPIVersion = None
+            PAHO_V2 = False
+            return True
+        except ImportError:
+            mqtt = None
+            CallbackAPIVersion = None
+            PAHO_V2 = False
+            return False
 
 logger = logging.getLogger("Electra.MQTT")
 
@@ -78,7 +106,7 @@ class MQTTService:
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.enabled and self.host)
+        return bool(self.enabled and self.host and _ensure_paho())
 
     @property
     def is_connected(self) -> bool:
@@ -106,8 +134,8 @@ class MQTTService:
         if not self.is_configured:
             return
 
-        if mqtt is None:
-            self._last_error = "paho-mqtt library is not installed"
+        if not _ensure_paho() or mqtt is None:
+            self._last_error = "paho-mqtt library is not installed in the active Python environment"
             logger.error(self._last_error)
             return
 
@@ -207,7 +235,11 @@ class MQTTService:
 
     def _on_disconnect(self, client: Any, userdata: Any, disconnect_flags_or_rc: Any, rc: Any = None, properties: Any = None) -> None:
         self._connected = False
-        logger.warning("Disconnected from MQTT broker. Reconnecting in background...")
+        raw_code = rc if rc is not None else disconnect_flags_or_rc
+        val = getattr(raw_code, "value", raw_code)
+        if val not in (0, None):
+            self._last_error = f"Disconnected from broker (code {val})"
+        logger.warning(f"Disconnected from MQTT broker (code: {val}). Reconnecting in background...")
 
     def _get_entity_definitions(self, slot_slug: str) -> List[Dict[str, Any]]:
         """Standardized Home Assistant entity schemas for each UPS unit."""
@@ -382,7 +414,14 @@ class MQTTService:
         src = source or ("Remote IP" if slot_name.startswith("Remote") else "USB HID")
 
         state_topic = f"{self.base_topic}/{slot_slug}/state"
-        avail_topic = f"{self.base_topic}/{slot_slug}/status"
+        avail_topic = self.global_status_topic
+        slot_status_topic = f"{self.base_topic}/{slot_slug}/status"
+
+        # Ensure slot availability is online
+        try:
+            self._client.publish(slot_status_topic, "online", qos=self.qos, retain=self.retain)
+        except Exception:
+            pass
 
         device_info = {
             "identifiers": [f"electra_ups_{slot_slug}"],

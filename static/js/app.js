@@ -542,8 +542,24 @@ function initEventListeners() {
       testMqttBtn.disabled = true;
       testMqttBtn.textContent = '⏳ Έλεγχος...';
       try {
-        await saveSettings();
-        const res = await fetch('/api/settings/test-mqtt', { method: 'POST' });
+        await saveSettings(false);
+        const mqttPayload = {
+          enabled: document.getElementById('chkMqttEnabled')?.checked ?? true,
+          host: document.getElementById('mqttHostInput')?.value?.trim() || 'homeassistant.local',
+          port: parseInt(document.getElementById('mqttPortInput')?.value || '1883', 10) || 1883,
+          username: document.getElementById('mqttUsernameInput')?.value?.trim() || '',
+          password: document.getElementById('mqttPasswordInput')?.value?.trim() || '',
+          client_id: 'electra_ups_monitor',
+          base_topic: document.getElementById('mqttBaseTopicInput')?.value?.trim() || 'electra/ups',
+          discovery_prefix: document.getElementById('mqttDiscoveryPrefixInput')?.value?.trim() || 'homeassistant',
+          qos: 1,
+          retain: true,
+        };
+        const res = await fetch('/api/settings/test-mqtt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(mqttPayload),
+        });
         const resData = await res.json();
         if (resData.success) {
           showToast(resData.message, 'success');
@@ -554,7 +570,7 @@ function initEventListeners() {
         const sData = await sRes.json();
         if (sData.mqtt) updateMqttUI(sData.mqtt);
       } catch (err) {
-        showToast('Σφάλμα δοκιμής σύνδεσης MQTT', 'error');
+        showToast('Σφάλμα δοκιμής σύνδεσης MQTT: ' + err, 'error');
       } finally {
         testMqttBtn.disabled = false;
         testMqttBtn.innerHTML = '<span>🔌</span> <span data-i18n="btn_test_mqtt">' + t('btn_test_mqtt') + '</span>';
@@ -1439,7 +1455,7 @@ async function openSettingsModal() {
     // Home Assistant & MQTT Discovery Settings
     const mqttCfg = cfg.mqtt || {};
     setChk('chkMqttEnabled', Boolean(mqttCfg.enabled));
-    setVal('mqttHostInput', mqttCfg.host || '');
+    setVal('mqttHostInput', mqttCfg.host || 'homeassistant.local');
     setVal('mqttPortInput', mqttCfg.port || 1883);
     setVal('mqttUsernameInput', mqttCfg.username || '');
     setVal('mqttPasswordInput', mqttCfg.password || '');
@@ -1628,7 +1644,7 @@ async function rescanDevices() {
   }
 }
 
-async function saveSettings() {
+async function saveSettings(closeModal = true) {
   const getVal = (id, def = '') => document.getElementById(id)?.value?.trim() || def;
   const getChk = (id) => document.getElementById(id)?.checked ?? true;
 
@@ -1744,7 +1760,7 @@ async function saveSettings() {
       remote_api_key: apiKey,
       mqtt: {
         enabled: getChk('chkMqttEnabled'),
-        host: getVal('mqttHostInput'),
+        host: getVal('mqttHostInput', 'homeassistant.local'),
         port: parseInt(getVal('mqttPortInput', '1883'), 10) || 1883,
         username: getVal('mqttUsernameInput'),
         password: getVal('mqttPasswordInput'),
@@ -1772,7 +1788,9 @@ async function saveSettings() {
       showToast(t('toast_saved'), 'success');
       currentProfilesCache = payload.profiles;
       updateChartSelectOptions(payload.profiles);
-      closeSettingsModal();
+      if (closeModal) {
+        closeSettingsModal();
+      }
       fetchInitialData();
     } else {
       showToast(t('toast_save_err'), 'error');

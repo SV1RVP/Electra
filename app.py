@@ -809,7 +809,14 @@ async def save_settings_endpoint(request: Request):
 
     if "config" in body:
         new_cfg = body["config"]
-        save_config(new_cfg)
+        current_cfg = get_config()
+        if isinstance(new_cfg, dict):
+            for k, v in new_cfg.items():
+                if k in current_cfg and isinstance(current_cfg[k], dict) and isinstance(v, dict):
+                    current_cfg[k].update(v)
+                else:
+                    current_cfg[k] = v
+        save_config(current_cfg)
         config_data = get_config()
 
         # Update Viber service
@@ -872,16 +879,27 @@ async def save_settings_endpoint(request: Request):
 
 
 @app.post("/api/settings/test-mqtt")
-def test_mqtt_endpoint():
+async def test_mqtt_endpoint(request: Request):
     """Validates MQTT connectivity and publishes discovery for active UPS units."""
+    try:
+        body = await request.json()
+        if isinstance(body, dict) and body:
+            mqtt_service.update_config(body)
+    except Exception:
+        pass
+
     if not mqtt_service.is_configured:
-        return {"success": False, "message": "MQTT is disabled or broker host is not configured."}
+        err = mqtt_service._last_error or "MQTT is disabled or broker host is not configured."
+        return {"success": False, "message": err}
 
     # Attempt connection / reconnection
     if not mqtt_service.is_connected:
         mqtt_service.stop()
         mqtt_service.start()
-        time.sleep(1.2)
+        for _ in range(30):
+            if mqtt_service.is_connected:
+                break
+            time.sleep(0.1)
 
     if mqtt_service.is_connected:
         all_data = list(latest_ups_state.values())
