@@ -37,6 +37,7 @@ from drivers.remote_receiver import RemoteReceiver
 from drivers.device_manager import device_manager
 from notifications.alert_manager import AlertManager
 from notifications.viber_service import ViberService
+from notifications.mqtt_service import MQTTService
 import updater
 
 logging.basicConfig(
@@ -49,12 +50,15 @@ logger = logging.getLogger("Electra.App")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if mqtt_service.is_configured:
+        mqtt_service.start()
     task = asyncio.create_task(monitoring_loop())
     yield
     task.cancel()
+    mqtt_service.stop()
 
 
-app = FastAPI(title="Electra - UPS Status Central Monitor", version="1.2.0", lifespan=lifespan)
+app = FastAPI(title="Electra - UPS Status Central Monitor", version="1.5.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,6 +81,9 @@ viber_service = ViberService(
     sender_name=viber_cfg.get("sender_name", "UPS Monitor"),
     receiver_id=viber_cfg.get("receiver_id", ""),
 )
+
+mqtt_cfg = config_data.get("mqtt", {})
+mqtt_service = MQTTService(mqtt_cfg, app_version="1.5.0")
 
 # Active SSE Client Queues
 sse_clients: List[asyncio.Queue] = []
@@ -480,6 +487,13 @@ async def monitoring_loop():
             all_data = list(latest_ups_state.values())
             alert_manager.check_daily_report_schedule(all_data)
 
+            # Publish to Home Assistant via MQTT
+            if mqtt_service.is_configured:
+                try:
+                    mqtt_service.publish_all(all_data)
+                except Exception as mqtt_err:
+                    logger.warning(f"Error publishing to MQTT: {mqtt_err}")
+
             # Check scheduled self-test
             check_self_test_schedule()
 
@@ -564,6 +578,7 @@ async def monitoring_loop():
                 "timestamp": now,
                 "ups_list": get_ups_list_for_response(),
                 "summary": compute_summary(all_data),
+                "mqtt": mqtt_service.get_status(),
             }
             sse_msg = f"event: ups_status\ndata: {json.dumps(status_payload)}\n\n"
             for q in list(sse_clients):
@@ -632,6 +647,7 @@ def get_status():
         "timestamp_iso": time.strftime("%Y-%m-%d %H:%M:%S"),
         "ups_list": get_ups_list_for_response(),
         "summary": compute_summary(all_data),
+        "mqtt": mqtt_service.get_status(),
     }
 
 
@@ -779,6 +795,7 @@ def get_settings():
         "config": get_config(),
         "profiles": get_profiles(),
         "learning": estimator.learning,
+        "mqtt": mqtt_service.get_status(),
     }
 
 
@@ -803,6 +820,13 @@ async def save_settings_endpoint(request: Request):
             receiver_id=v_cfg.get("receiver_id", ""),
         )
         alert_manager.update_config(config_data)
+
+        # Update MQTT service
+        mqtt_service.update_config(config_data.get("mqtt", {}))
+        if mqtt_service.is_configured and not mqtt_service.is_connected:
+            mqtt_service.start()
+        elif not mqtt_service.is_configured:
+            mqtt_service.stop()
 
     if "profiles" in body:
         new_prof = body["profiles"]
@@ -845,6 +869,30 @@ async def save_settings_endpoint(request: Request):
             logger.info(f"Removed decommissioned remote slot: '{rem}'")
 
     return {"status": "success", "message": "Settings updated successfully."}
+
+
+@app.post("/api/settings/test-mqtt")
+def test_mqtt_endpoint():
+    """Validates MQTT connectivity and publishes discovery for active UPS units."""
+    if not mqtt_service.is_configured:
+        return {"success": False, "message": "MQTT is disabled or broker host is not configured."}
+
+    # Attempt connection / reconnection
+    if not mqtt_service.is_connected:
+        mqtt_service.stop()
+        mqtt_service.start()
+        time.sleep(1.2)
+
+    if mqtt_service.is_connected:
+        all_data = list(latest_ups_state.values())
+        mqtt_service.publish_all(all_data)
+        return {
+            "success": True,
+            "message": f"Connected to {mqtt_service.host}:{mqtt_service.port}! Published discovery for {len(all_data)} UPS units.",
+        }
+    else:
+        err = mqtt_service._last_error or "Could not connect to MQTT broker."
+        return {"success": False, "message": f"Connection failed: {err}"}
 
 
 @app.delete("/api/profiles/{slot_name}")

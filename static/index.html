@@ -32,7 +32,7 @@
           <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <h1>Electra</h1>
             <div class="update-status-inline" id="updateContainer">
-              <span class="version-badge" id="versionTag">v1.4.3</span>
+              <span class="version-badge" id="versionTag">v1.5.0</span>
               <span class="update-info-text" id="updateInfo" data-i18n="update_checking">Checking...</span>
               <button type="button" class="btn-update-mini" id="btnCheckUpdate" data-i18n="btn_check_update" title="Check for updates">Έλεγχος</button>
               <button type="button" class="btn-update-now" id="btnUpdateNow" style="display: none;" data-i18n="btn_update_now" title="Download update and restart">⚡ Ενημέρωση Τώρα</button>
@@ -46,6 +46,11 @@
         <div class="live-indicator">
           <span class="live-dot"></span>
           <span data-i18n="live_status">LIVE STREAM</span>
+        </div>
+
+        <div class="mqtt-indicator is-disabled" id="mqttIndicator" title="Home Assistant / MQTT Discovery">
+          <span class="mqtt-dot" id="mqttDot"></span>
+          <span id="mqttStatusText">MQTT</span>
         </div>
 
         <button id="langToggleBtn" class="btn-icon" title="Toggle Language">🇬🇷 EL</button>
@@ -280,6 +285,67 @@
               <span>📊</span>
               <span data-i18n="btn_daily_report_now">Αποστολή Ημερήσιας Αναφοράς Τώρα</span>
             </button>
+          </div>
+        </div>
+
+        <!-- Home Assistant & MQTT Discovery Settings -->
+        <div class="settings-section">
+          <h4 data-i18n="sec_mqtt">🏠 Home Assistant & MQTT Discovery</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;" data-i18n="desc_mqtt">
+            Αυτόματος εντοπισμός όλων των συνδεδεμένων και απομακρυσμένων UPS στο Home Assistant μέσω MQTT.
+          </p>
+
+          <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: rgba(3, 169, 244, 0.08); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid rgba(3, 169, 244, 0.2);">
+            <label class="form-label" style="margin: 0; cursor: pointer;" for="chkMqttEnabled" data-i18n="lbl_mqtt_enabled">
+              Ενεργοποίηση Home Assistant & MQTT:
+            </label>
+            <input type="checkbox" id="chkMqttEnabled" style="width: 20px; height: 20px; cursor: pointer;">
+          </div>
+
+          <div id="mqttFieldsContainer">
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 10px;">
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_mqtt_host">MQTT Broker Host / IP:</label>
+                <input type="text" id="mqttHostInput" class="form-input" placeholder="π.χ. homeassistant.local ή 192.168.1.100">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_mqtt_port">Port:</label>
+                <input type="number" id="mqttPortInput" class="form-input" value="1883">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_mqtt_user">Username (Προαιρετικό):</label>
+                <input type="text" id="mqttUsernameInput" class="form-input" placeholder="Χρήστης MQTT">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_mqtt_pass">Password (Προαιρετικό):</label>
+                <input type="password" id="mqttPasswordInput" class="form-input" placeholder="Κωδικός MQTT">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_mqtt_base_topic">Base Topic:</label>
+                <input type="text" id="mqttBaseTopicInput" class="form-input" value="electra/ups">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="lbl_mqtt_discovery_prefix">HA Discovery Prefix:</label>
+                <input type="text" id="mqttDiscoveryPrefixInput" class="form-input" value="homeassistant">
+              </div>
+            </div>
+
+            <div class="form-group" style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; align-items: center;">
+              <button id="testMqttBtn" type="button" class="btn-icon" style="flex: 1; min-width: 200px; justify-content: center; background: #0284c7; color: white;">
+                <span>🔌</span>
+                <span data-i18n="btn_test_mqtt">Δοκιμή Σύνδεσης & Auto-Discovery</span>
+              </button>
+            </div>
+
+            <div id="mqttStatusBox" style="margin-top: 10px; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.8rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass);">
+              <div id="mqttStatusDetail">Κατάσταση: <span style="color: var(--text-muted);">Ανενεργό</span></div>
+            </div>
           </div>
         </div>
 

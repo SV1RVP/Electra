@@ -18,6 +18,16 @@ const I18N = {
     btn_settings: "Ρυθμίσεις",
     btn_test_viber: "Αποστολή Δοκιμαστικού Viber",
     btn_daily_report_now: "Αποστολή Ημερήσιας Αναφοράς Τώρα",
+    btn_test_mqtt: "Δοκιμή Σύνδεσης & Auto-Discovery",
+    sec_mqtt: "🏠 Home Assistant & MQTT Discovery",
+    desc_mqtt: "Αυτόματος εντοπισμός όλων των συνδεδεμένων και απομακρυσμένων UPS στο Home Assistant μέσω MQTT.",
+    lbl_mqtt_enabled: "Ενεργοποίηση Home Assistant & MQTT:",
+    lbl_mqtt_host: "MQTT Broker Host / IP:",
+    lbl_mqtt_port: "Port:",
+    lbl_mqtt_user: "Username (Προαιρετικό):",
+    lbl_mqtt_pass: "Password (Προαιρετικό):",
+    lbl_mqtt_base_topic: "Base Topic:",
+    lbl_mqtt_discovery_prefix: "HA Discovery Prefix:",
     btn_rescan_usb: "Επανασάρωση Θυρών USB",
     lbl_port_bound: "Κλειδωμένη Θύρα",
     lbl_port_unbound: "Auto-Scan / Μη συνδεδεμένο",
@@ -193,6 +203,16 @@ const I18N = {
     btn_settings: "Settings",
     btn_test_viber: "Send Test Viber Alert",
     btn_daily_report_now: "Send Daily Report Now",
+    btn_test_mqtt: "Test Connection & Auto-Discovery",
+    sec_mqtt: "🏠 Home Assistant & MQTT Discovery",
+    desc_mqtt: "Automatic discovery of all connected and remote UPS units in Home Assistant via MQTT.",
+    lbl_mqtt_enabled: "Enable Home Assistant & MQTT:",
+    lbl_mqtt_host: "MQTT Broker Host / IP:",
+    lbl_mqtt_port: "Port:",
+    lbl_mqtt_user: "Username (Optional):",
+    lbl_mqtt_pass: "Password (Optional):",
+    lbl_mqtt_base_topic: "Base Topic:",
+    lbl_mqtt_discovery_prefix: "HA Discovery Prefix:",
     btn_rescan_usb: "Re-Scan USB Ports",
     lbl_port_bound: "Locked Port",
     lbl_port_unbound: "Auto-Scan / Unbound",
@@ -516,6 +536,42 @@ function initEventListeners() {
   const btnAddRemote = document.getElementById('btnAddRemoteProfile');
   if (btnAddRemote) btnAddRemote.addEventListener('click', handleAddRemoteProfile);
 
+  const testMqttBtn = document.getElementById('testMqttBtn');
+  if (testMqttBtn) {
+    testMqttBtn.addEventListener('click', async () => {
+      testMqttBtn.disabled = true;
+      testMqttBtn.textContent = '⏳ Έλεγχος...';
+      try {
+        await saveSettings();
+        const res = await fetch('/api/settings/test-mqtt', { method: 'POST' });
+        const resData = await res.json();
+        if (resData.success) {
+          showToast(resData.message, 'success');
+        } else {
+          showToast(resData.message, 'error');
+        }
+        const sRes = await fetch('/api/settings');
+        const sData = await sRes.json();
+        if (sData.mqtt) updateMqttUI(sData.mqtt);
+      } catch (err) {
+        showToast('Σφάλμα δοκιμής σύνδεσης MQTT', 'error');
+      } finally {
+        testMqttBtn.disabled = false;
+        testMqttBtn.innerHTML = '<span>🔌</span> <span data-i18n="btn_test_mqtt">' + t('btn_test_mqtt') + '</span>';
+      }
+    });
+  }
+
+  const mqttIndicator = document.getElementById('mqttIndicator');
+  if (mqttIndicator) {
+    mqttIndicator.addEventListener('click', () => {
+      openSettingsModal();
+      setTimeout(() => {
+        document.getElementById('chkMqttEnabled')?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    });
+  }
+
   const retentionSelect = document.getElementById('dbRetentionSelect');
   if (retentionSelect) {
     retentionSelect.addEventListener('change', (e) => {
@@ -666,8 +722,67 @@ async function fetchInitialData() {
   }
 }
 
+function updateMqttUI(mqtt) {
+  if (!mqtt) return;
+
+  const indicator = document.getElementById('mqttIndicator');
+  const dot = document.getElementById('mqttDot');
+  const statusText = document.getElementById('mqttStatusText');
+
+  if (indicator && dot && statusText) {
+    if (!mqtt.enabled) {
+      indicator.className = 'mqtt-indicator is-disabled';
+      indicator.title = 'Home Assistant / MQTT: Disabled';
+    } else {
+      indicator.classList.remove('is-disabled');
+      if (mqtt.connected) {
+        indicator.className = 'mqtt-indicator is-online';
+        statusText.textContent = 'HA / MQTT OK';
+        const count = mqtt.published_count || 0;
+        indicator.title = `Connected to ${mqtt.host}:${mqtt.port} (${count} UPS Active in Home Assistant)`;
+      } else {
+        indicator.className = 'mqtt-indicator is-offline';
+        statusText.textContent = 'MQTT OFFLINE';
+        indicator.title = `Disconnected from ${mqtt.host || 'broker'}${mqtt.error ? ': ' + mqtt.error : ''}`;
+      }
+    }
+  }
+
+  const detailEl = document.getElementById('mqttStatusDetail');
+  if (detailEl) {
+    if (!mqtt.enabled) {
+      detailEl.innerHTML = `<strong>Κατάσταση:</strong> <span style="color: var(--text-muted);">⚪ Ανενεργό (Disabled)</span>`;
+    } else if (mqtt.connected) {
+      const units = (mqtt.discovered_slots || []).join(', ') || 'Καμία';
+      detailEl.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <div><strong>Κατάσταση:</strong> <span style="color: var(--accent-green); font-weight: 700;">🟢 Συνδεδεμένο (Online)</span></div>
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">${mqtt.host}:${mqtt.port}</span>
+        </div>
+        <div style="margin-top: 5px; font-size: 0.75rem; color: var(--text-secondary);">
+          <strong>Ενεργές Συσκευές στο HA:</strong> ${units} (${mqtt.published_count || 0} UPS)
+        </div>
+      `;
+    } else {
+      detailEl.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <div><strong>Κατάσταση:</strong> <span style="color: #ff5252; font-weight: 700;">🔴 Αποσυνδεδεμένο (Offline)</span></div>
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">${mqtt.host || '—'}:${mqtt.port}</span>
+        </div>
+        <div style="margin-top: 5px; font-size: 0.75rem; color: #ff5252;">
+          ${mqtt.error ? 'Σφάλμα: ' + mqtt.error : 'Αναμονή επανασύνδεσης στον broker...'}
+        </div>
+      `;
+    }
+  }
+}
+
 function updateDashboard(payload) {
   if (!payload || !payload.ups_list) return;
+
+  if (payload.mqtt) {
+    updateMqttUI(payload.mqtt);
+  }
 
   const profMap = {};
   payload.ups_list.forEach((u, idx) => {
@@ -1321,6 +1436,19 @@ async function openSettingsModal() {
     setChk('chkSelfTestViberNotify', selfTestCfg.notify_viber !== false);
     updateSelfTestFrequencyUI(selfTestCfg.frequency || 'daily');
 
+    // Home Assistant & MQTT Discovery Settings
+    const mqttCfg = cfg.mqtt || {};
+    setChk('chkMqttEnabled', Boolean(mqttCfg.enabled));
+    setVal('mqttHostInput', mqttCfg.host || '');
+    setVal('mqttPortInput', mqttCfg.port || 1883);
+    setVal('mqttUsernameInput', mqttCfg.username || '');
+    setVal('mqttPasswordInput', mqttCfg.password || '');
+    setVal('mqttBaseTopicInput', mqttCfg.base_topic || 'electra/ups');
+    setVal('mqttDiscoveryPrefixInput', mqttCfg.discovery_prefix || 'homeassistant');
+    if (data.mqtt) {
+      updateMqttUI(data.mqtt);
+    }
+
     const l1Prof = profiles['Local-1'] || profiles.TEC || {};
     const l2Prof = profiles['Local-2'] || profiles['Turbo-X'] || {};
 
@@ -1614,6 +1742,18 @@ async function saveSettings() {
       db_log_on_change: dbLogOnChange,
       db_outage_fast_log: dbOutageFastLog,
       remote_api_key: apiKey,
+      mqtt: {
+        enabled: getChk('chkMqttEnabled'),
+        host: getVal('mqttHostInput'),
+        port: parseInt(getVal('mqttPortInput', '1883'), 10) || 1883,
+        username: getVal('mqttUsernameInput'),
+        password: getVal('mqttPasswordInput'),
+        client_id: 'electra_ups_monitor',
+        base_topic: getVal('mqttBaseTopicInput', 'electra/ups'),
+        discovery_prefix: getVal('mqttDiscoveryPrefixInput', 'homeassistant'),
+        qos: 1,
+        retain: true,
+      },
       ui_settings: {
         language: currentLang,
       }

@@ -277,6 +277,57 @@ body {
   100% { transform: scale(0.9); opacity: 0.7; }
 }
 
+.mqtt-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(3, 169, 244, 0.08);
+  border: 1px solid rgba(3, 169, 244, 0.25);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #03a9f4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mqtt-indicator.is-online {
+  background: rgba(0, 230, 118, 0.12);
+  border-color: rgba(0, 230, 118, 0.35);
+  color: var(--accent-green);
+}
+
+.mqtt-indicator.is-offline {
+  background: rgba(255, 23, 68, 0.1);
+  border-color: rgba(255, 23, 68, 0.3);
+  color: #ff5252;
+}
+
+.mqtt-indicator.is-disabled {
+  display: none;
+}
+
+.mqtt-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #03a9f4;
+  box-shadow: 0 0 10px #03a9f4;
+  flex-shrink: 0;
+}
+
+.mqtt-indicator.is-online .mqtt-dot {
+  background-color: var(--accent-green);
+  box-shadow: 0 0 10px var(--accent-green);
+  animation: pulse-dot 1.8s infinite;
+}
+
+.mqtt-indicator.is-offline .mqtt-dot {
+  background-color: #ff5252;
+  box-shadow: 0 0 8px #ff5252;
+}
+
 .btn-icon {
   background: var(--bg-card);
   border: 1px solid var(--border-glass);

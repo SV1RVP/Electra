@@ -52,6 +52,18 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "db_outage_fast_log": True,
     "remote_api_key": "ups_remote_secret_key_123",
     "language": "el",
+    "mqtt": {
+        "enabled": False,
+        "host": "homeassistant.local",
+        "port": 1883,
+        "username": "",
+        "password": "",
+        "client_id": "electra_ups_monitor",
+        "discovery_prefix": "homeassistant",
+        "base_topic": "electra/ups",
+        "qos": 1,
+        "retain": True,
+    },
     "ui_settings": {
         "theme": "cyberpunk",
         "language": "el",
@@ -116,7 +128,11 @@ def load_json_file(path: Path, default_data: Any) -> Any:
             # Merge with default keys to ensure missing fields exist
             if isinstance(default_data, dict) and isinstance(data, dict):
                 merged = json.loads(json.dumps(default_data))
-                merged.update(data)
+                for k, v in data.items():
+                    if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
+                        merged[k].update(v)
+                    else:
+                        merged[k] = v
                 return merged
             return data
     except Exception:

@@ -1,7 +1,7 @@
 # ⚡ Electra - UPS Status Central Monitor 🔋📊
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.4.3-emerald.svg)](version.json)
+[![Version](https://img.shields.io/badge/Version-1.5.0-emerald.svg)](version.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Raspberry%20Pi-purple.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)
@@ -38,6 +38,16 @@
 - **Strict Telemetry & Chart Isolation**: Distinct slot color palettes (`#00f0ff` Local-1, `#00e676` Local-2, `#ff007f` Remote-1, `#b388ff` Remote-2, `#ffab00` Remote-3, `#ff5252` Remote-4) and isolated filtering guarantee no data crosstalk between local and remote units.
 - **Fleet-Wide Synchronized Self-Test**: Initiate diagnostic self-tests across all active local and remote UPS units simultaneously with one click.
 
+### 🏠 Home Assistant & MQTT Auto-Discovery (Multi-UPS Fleet)
+- **Zero-Config Home Assistant Discovery**: Automatically registers all active UPS units in Home Assistant using standard MQTT Discovery schemas (`homeassistant/sensor/...`, `homeassistant/binary_sensor/...`).
+- **Independent Device Per UPS Unit**: Each local UPS (`Local-1`, `Local-2`) and every dynamic remote/network node (`Remote-1`, `Remote-2`, ...) is created as its own discrete Home Assistant device (`Electra UPS - <Location>`), complete with model, manufacturer, and unique hardware identifiers.
+- **Dynamic Network Agent Auto-Registration**: Newly attached network/remote agents are discovered and pushed to Home Assistant on the fly with zero server restarts.
+- **Comprehensive HA Entities**:
+  - **Sensors**: Operating Mode, Input & Output Voltage (V), Grid Frequency (Hz), Load (%), Load (W), Load (A), Battery SoC (%), Battery Voltage (V), Estimated Runtime / Autonomy (min), Internal Temperature (°C), Status Timestamp.
+  - **Binary Sensors**: Low Battery Warning (`battery`), UPS Fault (`problem`), Connectivity Status (`connectivity`).
+- **Real-Time WebUI Status & Settings**: Live MQTT status indicator (`🟢 MQTT Connected` / `🔴 Disconnected` / `⚪ Disabled`) in the dashboard header, full configuration controls in Settings, and one-click `Test Connection & Publish Discovery` button.
+- **Resilient Connection**: Auto-reconnect with exponential backoff, Last Will and Testament (LWT) topic (`electra/ups/status`), and non-blocking background loop.
+
 ### 🖥️ Modern WebUI Dashboard
 - **Cyberpunk / Glassmorphic UI**: High-contrast, glowing neon aesthetic with dark mode and optional light theme.
 - **Animated Power Flow Diagram**: Real-time animated visualization of power routing (Mains $\rightarrow$ Inverter $\rightarrow$ Battery $\rightarrow$ Loads) for each active UPS.
@@ -70,7 +80,7 @@
 - **Automated Daily Status Report**: Scheduled daily summary broadcast at a user-defined time (e.g. 09:00).
 
 ### 🔄 One-Click Auto-Update & Maintenance
-- **WebUI Version Checker**: Header widget displays the current version (`v1.4.3`) with a single-click update checker.
+- **WebUI Version Checker**: Header widget displays the current version (`v1.5.0`) with a single-click update checker.
 - **One-Click Update ("⚡ Update Now")**: Pulls new code from Git or downloads the universal update ZIP, extracts files safely (preserving configurations and telemetry databases), and automatically restarts the background service.
 
 ---
@@ -207,7 +217,19 @@ The system stores configurations in:
   "db_retention_days": 30,
   "db_log_on_change": true,
   "db_outage_fast_log": true,
-  "remote_api_key": "ups_remote_secret_key_123"
+  "remote_api_key": "ups_remote_secret_key_123",
+  "mqtt": {
+    "enabled": false,
+    "host": "homeassistant.local",
+    "port": 1883,
+    "username": "",
+    "password": "",
+    "client_id": "Electra_UPS_Monitor",
+    "discovery_prefix": "homeassistant",
+    "base_topic": "electra",
+    "qos": 1,
+    "retain": true
+  }
 }
 ```
 
@@ -252,6 +274,16 @@ chmod +x uninstall-linux.sh
 - **Πλήρης Απομόνωση Τηλεμετρίας & Γραφημάτων**: Ξεχωριστές παλέτες χρωμάτων (`#00f0ff` Local-1, `#00e676` Local-2, `#ff007f` Remote-1, `#b388ff` Remote-2, `#ffab00` Remote-3, `#ff5252` Remote-4) και αυστηρό φιλτράρισμα αποτρέπουν οποιοδήποτε μπέρδεμα μετρήσεων μεταξύ τοπικών και απομακρυσμένων μονάδων.
 - **Συγχρονισμένο Self-Test Όλων των Μονάδων**: Εκτέλεση διαγνωστικού ελέγχου (Self-Test) σε όλα τα ενεργά τοπικά και απομακρυσμένα UPS ταυτόχρονα με 1 κλικ.
 
+### 🏠 Ενσωμάτωση Home Assistant & MQTT Auto-Discovery (Στόλος Multi-UPS)
+- **Αυτόματη Αναγνώριση στο Home Assistant (Zero-Config)**: Δημοσιεύει αυτόματα όλα τα ενεργά UPS στο Home Assistant μέσω του επίσημου προτύπου MQTT Discovery (`homeassistant/sensor/...`, `homeassistant/binary_sensor/...`).
+- **Ξεχωριστή Συσκευή ανά Μονάδα UPS**: Κάθε τοπικό UPS (`Local-1`, `Local-2`) και κάθε απομακρυσμένος δικτυακός κόμβος (`Remote-1`, `Remote-2`, ...) εμφανίζεται ως αυτόνομη συσκευή στο Home Assistant (`Electra UPS - <Τοποθεσία>`), με πλήρη στοιχεία κατασκευαστή, μοντέλου και αναγνωριστικού υλικού.
+- **Δυναμική Καταχώρηση Νέων Δικτυακών Agents**: Όταν συνδέεται ένας νέος απομακρυσμένος agent, το σύστημα στέλνει αυτόματα τα payloads ανακάλυψης στο Home Assistant σε πραγματικό χρόνο χωρίς να χρειάζεται επανεκκίνηση του server.
+- **Πλήρεις Οντότητες Τηλεμετρίας**:
+  - **Αισθητήρες (Sensors)**: Κατάσταση Λειτουργίας (Mode), Τάση Εισόδου/Εξόδου (V), Συχνότητα Δικτύου (Hz), Φορτίο (%), Φορτίο (W), Ρεύμα Φορτίου (A), Στάθμη Μπαταρίας (%), Τάση Μπαταρίας (V), Εκτιμώμενη Αυτονομία (min), Εσωτερική Θερμοκρασία (°C), Χρονοσφραγίδα Κατάστασης.
+  - **Δυαδικοί Αισθητήρες (Binary Sensors)**: Χαμηλή Στάθμη Μπαταρίας (`battery`), Βλάβη UPS (`problem`), Κατάσταση Σύνδεσης (`connectivity`).
+- **Ζωντανή Ένδειξη Κατάστασης & Ρυθμίσεις στο WebUI**: Έγχρωμη ένδειξη κατάστασης σύνδεσης (`🟢 MQTT Συνδεδεμένο` / `🔴 Αποσυνδεδεμένο` / `⚪ Ανενεργό`) στην κεφαλίδα του WebUI, πλήρες πάνελ παραμετροποίησης στις Ρυθμίσεις και κουμπί άμεσης δοκιμής `Δοκιμή Σύνδεσης & Αποστολή Ανακάλυψης`.
+- **Ανθεκτική Σύνδεση**: Αυτόματη επανασύνδεση σε διακοπή δικτύου, Last Will and Testament (LWT) topic (`electra/ups/status`) και μη-μπλοκαριστικός βρόχος παρασκηνίου.
+
 ### 🖥️ Σύγχρονο WebUI Dashboard
 - **Cyberpunk / Glassmorphic Σχεδιασμός**: Υψηλής αντίθεσης neon αισθητική με Dark Mode και εναλλακτικό Light Theme.
 - **Κινούμενο Διάγραμμα Ροής Ισχύος (Power Flow Animation)**: Ζωντανή οπτικοποίηση της ροής ρεύματος (Δίκτυο ΔΕΗ $\rightarrow$ Inverter $\rightarrow$ Μπαταρία $\rightarrow$ Φορτία) για κάθε ενεργό UPS.
@@ -284,7 +316,7 @@ chmod +x uninstall-linux.sh
 - **Προγραμματισμένη Ημερήσια Αναφορά**: Αυτόματη αποστολή σύνοψης κατάστασης σε προκαθορισμένη ώρα (π.χ. 09:00).
 
 ### 🔄 Αυτόματη Ενημέρωση με 1 Κλικ
-- **Έλεγχος Έκδοσης στο WebUI**: Εμφάνιση της τρέχουσας έκδοσης (`v1.4.3`) στην κεφαλίδα με κουμπί ελέγχου νεότερης έκδοσης.
+- **Έλεγχος Έκδοσης στο WebUI**: Εμφάνιση της τρέχουσας έκδοσης (`v1.5.0`) στην κεφαλίδα με κουμπί ελέγχου νεότερης έκδοσης.
 - **Ενημέρωση με 1 Κλικ («⚡ Ενημέρωση Τώρα»)**: Λήψη του νέου κώδικα από το Git ή ZIP, ασφαλής εφαρμογή των αρχείων (διατηρώντας τις ρυθμίσεις και τη βάση δεδομένων) και αυτόματη επανεκκίνηση της υπηρεσίας.
 
 ---
@@ -421,7 +453,19 @@ chmod +x uninstall-linux.sh
   "db_retention_days": 30,
   "db_log_on_change": true,
   "db_outage_fast_log": true,
-  "remote_api_key": "ups_remote_secret_key_123"
+  "remote_api_key": "ups_remote_secret_key_123",
+  "mqtt": {
+    "enabled": false,
+    "host": "homeassistant.local",
+    "port": 1883,
+    "username": "",
+    "password": "",
+    "client_id": "Electra_UPS_Monitor",
+    "discovery_prefix": "homeassistant",
+    "base_topic": "electra",
+    "qos": 1,
+    "retain": true
+  }
 }
 ```
 
